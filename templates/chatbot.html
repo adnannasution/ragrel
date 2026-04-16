@@ -63,52 +63,91 @@
         </div>
     </div>
 
-    <script>
-        const chatbox = document.getElementById('chatbox');
-        function toggleModal() { document.getElementById('uploadModal').classList.toggle('hidden'); }
+   <script>
+    const chatbox = document.getElementById('chatbox');
+    function toggleModal() { document.getElementById('uploadModal').classList.toggle('hidden'); }
 
-        async function sendQuestion() {
-            const input = document.getElementById('userInput');
-            const text = input.value.trim();
-            if(!text) return;
+    // Fungsi Utama untuk Menampilkan Pesan (Support HTML)
+    function appendMessage(role, text) {
+        const isAI = role === 'ai';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${isAI ? 'items-start' : 'items-end justify-end'} gap-3 mb-4`;
+        
+        const content = `
+            ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-robot"></i></div>' : ''}
             
-            // User Message
-            chatbox.innerHTML += `<div class="flex justify-end"><div class="bg-indigo-600 text-white p-4 shadow-sm user-bubble max-w-2xl">${text}</div></div>`;
-            input.value = '';
-            chatbox.scrollTop = chatbox.scrollHeight;
+            <div class="${isAI ? 'ai-msg bg-white border text-slate-700 ai-bubble' : 'user-msg bg-indigo-600 text-white user-bubble'} p-4 shadow-sm max-w-[80%]">
+                ${text}
+            </div>
 
-            // AI Loading
-            const loadingId = 'loading-' + Date.now();
-            chatbox.innerHTML += `<div id="${loadingId}" class="flex items-start gap-3"><div class="bg-white p-4 shadow-sm ai-bubble text-slate-400 italic border">Sedang menganalisis data...</div></div>`;
-            chatbox.scrollTop = chatbox.scrollHeight;
+            ${!isAI ? '<div class="bg-slate-200 text-slate-600 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-user"></i></div>' : ''}
+        `;
+        
+        msgDiv.innerHTML = content;
+        chatbox.appendChild(msgDiv);
+        chatbox.scrollTop = chatbox.scrollHeight;
+    }
 
-            try {
-                const res = await fetch(`/ask?question=${encodeURIComponent(text)}`);
-                const data = await res.json();
-                document.getElementById(loadingId).remove();
-                chatbox.innerHTML += `<div class="flex items-start gap-3"><div class="bg-white p-4 shadow-sm ai-bubble text-slate-700 max-w-2xl border">${data.answer || data.error}</div></div>`;
-            } catch {
-                document.getElementById(loadingId).remove();
-                chatbox.innerHTML += `<div class="flex items-start gap-3"><div class="bg-red-50 text-red-600 p-4 shadow-sm ai-bubble max-w-2xl border">Gagal menghubungi AI.</div></div>`;
-            }
-            chatbox.scrollTop = chatbox.scrollHeight;
+    async function sendQuestion() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if(!text) return;
+        
+        // Tampilkan pesan User
+        appendMessage('user', text);
+        input.value = '';
+
+        // Tampilkan Loading Indicator
+        const loadingId = 'loading-' + Date.now();
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = loadingId;
+        loadingDiv.className = 'flex items-start gap-3 mb-4';
+        loadingDiv.innerHTML = `
+            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-robot"></i></div>
+            <div class="ai-msg bg-white p-4 shadow-sm border ai-bubble italic text-slate-400">
+                Sedang menganalisis data...
+            </div>
+        `;
+        chatbox.appendChild(loadingDiv);
+        chatbox.scrollTop = chatbox.scrollHeight;
+
+        try {
+            const res = await fetch(`/ask?question=${encodeURIComponent(text)}`);
+            const data = await res.json();
+            
+            // Hapus Loading
+            document.getElementById(loadingId).remove();
+            
+            // Tampilkan Jawaban AI (Mendukung HTML dari GPT-4o)
+            appendMessage('ai', data.answer || data.error);
+        } catch (e) {
+            document.getElementById(loadingId).remove();
+            appendMessage('ai', "<span class='text-red-500'>Gagal menghubungi server.</span>");
         }
+    }
 
-        async function processUpload() {
-            const fileInput = document.getElementById('excelFile');
-            if(fileInput.files.length === 0) return alert("Pilih file!");
-            const btn = document.getElementById('syncBtn');
-            btn.innerText = "Proses..."; btn.disabled = true;
+    async function processUpload() {
+        const fileInput = document.getElementById('excelFile');
+        if(fileInput.files.length === 0) return alert("Pilih file!");
+        const btn = document.getElementById('syncBtn');
+        btn.innerText = "Proses..."; btn.disabled = true;
 
-            const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
 
+        try {
             const res = await fetch('/upload-sync', { method: 'POST', body: formData });
             const data = await res.json();
             alert(data.message || data.error);
+        } catch (e) {
+            alert("Terjadi kesalahan saat upload.");
+        } finally {
             btn.innerText = "Mulai Sinkronisasi"; btn.disabled = false;
             toggleModal();
         }
-    </script>
+    }
+</script>
 </body>
 </html>
+
+

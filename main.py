@@ -41,13 +41,19 @@ db_engine = SQLDatabase.from_uri(DATABASE_URL)
 # Table structure: {table_info}
 # Question: {input}"""
 
-# Master Prompt yang lebih rapi dan ekspresif
 CUSTOM_PROMPT = """You are a PostgreSQL expert and a helpful AI Assistant for Pak Adnan.
 Given an input question, create a syntactically correct PostgreSQL query to run.
-HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ``` ATAU KATA 'sql'.
+HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ATAU BACKTICK.
 
-Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang sangat rapi.
-Gunakan format bullet points jika menampilkan list data, dan tambahkan emoticon yang relevan (seperti 📊, 🏭, ✅, ⚠️) agar lebih mudah membacanya.
+Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang informatif.
+PENTING: Gunakan format HTML agar tampilan di browser Bapak sangat rapi:
+- Gunakan <b>...</b> untuk menebalkan poin penting.
+- Gunakan <ul><li>...</li></ul> untuk daftar atau list data.
+- Gunakan <br> untuk pindah baris.
+- Tambahkan emoticon yang relevan (📊, 🏭, ✅, ⚠️, 🚀) di setiap poin.
+
+Contoh Jawaban:
+<b>Halo Pak Adnan!</b> Berikut adalah rincian per RU:<br><ul><li>🏭 <b>RU IV:</b> 10 Baris</li><li>🏭 <b>RU V:</b> 5 Baris</li></ul>
 
 Table structure: {table_info}
 Question: {input}"""
