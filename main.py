@@ -51,6 +51,8 @@ ATURAN QUERY SQL:
 - Selalu gunakan NULLIF(nama_kolom, 0) pada posisi penyebut (pembagi) dalam setiap operasi pembagian untuk menghindari error 'division by zero'.
 - Pastikan query kompatibel dengan PostgreSQL.
 
+
+
 ATURAN FORMAT BIJAK & RAPI:
 1. PENYAJIAN DATA:
    - Gunakan format narasi/list (<ul><li>) jika data hanya sedikit (1-3 baris).
@@ -62,6 +64,11 @@ ATURAN FORMAT BIJAK & RAPI:
 3. ESTETIKA:
    - Tambahkan emoticon yang relevan (📊, 🏭, ✅, ⚠️, 🚀) di setiap poin jawaban.
    - Pastikan tabel memiliki header (<th>) yang jelas dan bersih.
+4. FITUR GRAFIK (CHART):
+   - JIKA user meminta "chart", "grafik", atau "visualisasi", berikan penjelasan singkat terlebih dahulu dalam narasi.
+   - Kemudian, tambahkan format JSON chart di akhir jawaban Anda:
+     [CHART] { "type": "bar", "dataset_label": "Judul Data", "labels": ["Ket 1", "Ket 2"], "data": [100, 200] } [/CHART]
+   - PENTING: Pastikan labels dan data diambil langsung dari hasil query database.
 
 Table structure: {table_info}
 Question: {input}"""
