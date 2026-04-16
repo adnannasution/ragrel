@@ -33,24 +33,26 @@ llm = ChatOpenAI(
 # Menghubungkan LangChain ke database PostgreSQL Railway
 db_engine = SQLDatabase.from_uri(DATABASE_URL)
 
-# CUSTOM PROMPT: Untuk memaksa AI hanya memberikan SQL murni tanpa backtick markdown
-QUERY_PROMPT = """Berikan query SQL PostgreSQL yang valid untuk menjawab pertanyaan user. 
-HANYA berikan kode SQL saja, tanpa tanda kutip backtick (```), tanpa kata 'sql', dan tanpa penjelasan apapun.
+# 1. Update Master Prompt agar lebih "manusiawi"
+CUSTOM_PROMPT = """You are a PostgreSQL expert. Given an input question, create a syntactically correct PostgreSQL query to run.
+HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ``` ATAU KATA 'sql'.
+Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang informatif kepada Pak Adnan.
 
-Struktur Tabel: {table_info}
-Pertanyaan: {input}"""
+Table structure: {table_info}
+Question: {input}"""
 
-prompt_template = PromptTemplate(
-    input_variables=["input", "table_info"],
-    template=QUERY_PROMPT
+PROMPT = PromptTemplate(
+    input_variables=["input", "table_info"], 
+    template=CUSTOM_PROMPT
 )
 
-# Inisialisasi Chain dengan Prompt Khusus
+# 2. Pastikan db_chain TIDAK langsung mengembalikan hasil query (return_direct=False)
 db_chain = SQLDatabaseChain.from_llm(
     llm, 
     db_engine, 
-    prompt=prompt_template,
-    verbose=True
+    prompt=PROMPT, 
+    verbose=True,
+    return_direct=False # Ini kuncinya agar GPT-4o yang merangkum jawaban
 )
 
 @app.get("/", response_class=HTMLResponse)
