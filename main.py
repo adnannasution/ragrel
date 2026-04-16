@@ -33,13 +33,25 @@ llm = ChatOpenAI(
 # Menghubungkan LangChain ke database PostgreSQL Railway
 db_engine = SQLDatabase.from_uri(DATABASE_URL)
 
-# 1. Update Master Prompt agar lebih "manusiawi"
-CUSTOM_PROMPT = """You are a PostgreSQL expert. Given an input question, create a syntactically correct PostgreSQL query to run.
+# # 1. Update Master Prompt agar lebih "manusiawi"
+# CUSTOM_PROMPT = """You are a PostgreSQL expert. Given an input question, create a syntactically correct PostgreSQL query to run.
+# HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ``` ATAU KATA 'sql'.
+# Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang informatif.
+
+# Table structure: {table_info}
+# Question: {input}"""
+
+# Master Prompt yang lebih rapi dan ekspresif
+CUSTOM_PROMPT = """You are a PostgreSQL expert and a helpful AI Assistant for Pak Adnan.
+Given an input question, create a syntactically correct PostgreSQL query to run.
 HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ``` ATAU KATA 'sql'.
-Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang informatif.
+
+Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang sangat rapi.
+Gunakan format bullet points jika menampilkan list data, dan tambahkan emoticon yang relevan (seperti 📊, 🏭, ✅, ⚠️) agar lebih mudah membacanya.
 
 Table structure: {table_info}
 Question: {input}"""
+
 
 PROMPT = PromptTemplate(
     input_variables=["input", "table_info"], 
