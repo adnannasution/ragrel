@@ -6,6 +6,7 @@
     <title>KPI AI Assistant | Dinoiki</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .chat-area { height: calc(100vh - 220px); }
         .ai-bubble { border-radius: 0 15px 15px 15px; }
@@ -110,25 +111,74 @@
     function toggleModal() { document.getElementById('uploadModal').classList.toggle('hidden'); }
 
     // Fungsi Utama untuk Menampilkan Pesan (Support HTML)
-    function appendMessage(role, text) {
-        const isAI = role === 'ai';
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `flex ${isAI ? 'items-start' : 'items-end justify-end'} gap-3 mb-4`;
-        
-        const content = `
-            ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-robot"></i></div>' : ''}
-            
-            <div class="${isAI ? 'ai-msg bg-white border text-slate-700 ai-bubble' : 'user-msg bg-indigo-600 text-white user-bubble'} p-4 shadow-sm max-w-[80%]">
-                ${text}
-            </div>
+function appendMessage(role, text) {
+    const isAI = role === 'ai';
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex ${isAI ? 'items-start' : 'items-end justify-end'} gap-3 mb-4`;
+    
+    // --- BAGIAN DETEKSI CHART ---
+    let finalContent = text;
+    let chartData = null;
 
-            ${!isAI ? '<div class="bg-slate-200 text-slate-600 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-user"></i></div>' : ''}
-        `;
-        
-        msgDiv.innerHTML = content;
-        chatbox.appendChild(msgDiv);
-        chatbox.scrollTop = chatbox.scrollHeight;
+    if (isAI && text.includes('[CHART]')) {
+        const parts = text.split('[CHART]');
+        finalContent = parts[0]; // Ambil teks narasi sebelum tag [CHART]
+        try {
+            // Ambil data JSON di antara [CHART] dan [/CHART]
+            const jsonString = parts[1].split('[/CHART]')[0].trim();
+            chartData = JSON.parse(jsonString);
+        } catch (e) {
+            console.error("Gagal membaca data grafik:", e);
+        }
     }
+    // ----------------------------
+
+    const content = `
+        ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-robot"></i></div>' : ''}
+        
+        <div class="${isAI ? 'ai-msg bg-white border text-slate-700 ai-bubble' : 'user-msg bg-indigo-600 text-white user-bubble'} p-4 shadow-sm max-w-[80%]">
+            <div>${finalContent}</div>
+            
+            ${chartData ? `
+                <div class="mt-4 p-2 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                    <canvas id="chart-${Date.now()}" style="max-height: 300px;"></canvas>
+                </div>
+            ` : ''}
+        </div>
+
+        ${!isAI ? '<div class="bg-slate-200 text-slate-600 p-2 rounded-full h-10 w-10 flex items-center justify-center"><i class="fas fa-user"></i></div>' : ''}
+    `;
+    
+    msgDiv.innerHTML = content;
+    chatbox.appendChild(msgDiv);
+
+    // --- PROSES MENGGAMBAR CHART ---
+    if (chartData) {
+        const canvas = msgDiv.querySelector('canvas');
+        new Chart(canvas, {
+            type: chartData.type || 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: chartData.dataset_label || 'Data KPI',
+                    data: chartData.data,
+                    backgroundColor: 'rgba(79, 70, 229, 0.6)', // Warna Indigo Transparan
+                    borderColor: 'rgb(79, 70, 229)',           // Warna Indigo Solid
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+    
+    chatbox.scrollTop = chatbox.scrollHeight;
+}
 
     async function sendQuestion() {
         const input = document.getElementById('userInput');
@@ -188,6 +238,9 @@
             toggleModal();
         }
     }
+
+
+    
 </script>
 </body>
 </html>
