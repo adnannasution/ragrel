@@ -64,11 +64,11 @@ ATURAN FORMAT BIJAK & RAPI:
 3. ESTETIKA:
    - Tambahkan emoticon yang relevan (📊, 🏭, ✅, ⚠️, 🚀) di setiap poin jawaban.
    - Pastikan tabel memiliki header (<th>) yang jelas dan bersih.
+
 4. FITUR GRAFIK (CHART):
-   - JIKA user meminta "chart", "grafik", atau "visualisasi", berikan penjelasan singkat terlebih dahulu dalam narasi.
-   - Kemudian, tambahkan format JSON chart di akhir jawaban Anda:
-     [CHART] { "type": "bar", "dataset_label": "Judul Data", "labels": ["Ket 1", "Ket 2"], "data": [100, 200] } [/CHART]
-   - PENTING: Pastikan labels dan data diambil langsung dari hasil query database.
+   - JIKA user meminta "chart", "grafik", atau "visualisasi", tambahkan format berikut di akhir jawaban Anda:
+     [CHART] {{ "type": "bar", "dataset_label": "Nama Label", "labels": ["A", "B"], "data": [10, 20] }} [/CHART]
+   - Sesuaikan "type" (bar/line/pie), "labels", dan "data" dengan hasil query database.
 
 Table structure: {table_info}
 Question: {input}"""
