@@ -36,7 +36,7 @@ db_engine = SQLDatabase.from_uri(DATABASE_URL)
 # 1. Update Master Prompt agar lebih "manusiawi"
 CUSTOM_PROMPT = """You are a PostgreSQL expert. Given an input question, create a syntactically correct PostgreSQL query to run.
 HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ``` ATAU KATA 'sql'.
-Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang informatif kepada Pak Adnan.
+Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang informatif.
 
 Table structure: {table_info}
 Question: {input}"""
