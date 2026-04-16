@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KPI AI Assistant | Dinoiki</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .chat-area { height: calc(100vh - 220px); }
+        .ai-bubble { border-radius: 0 15px 15px 15px; }
+        .user-bubble { border-radius: 15px 15px 0 15px; }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-indigo-900 text-white p-4 shadow-md flex justify-between items-center px-8">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-robot text-2xl text-indigo-300"></i>
+            <div>
+                <h1 class="font-bold text-lg">KPI Maintenance AI</h1>
+                <p class="text-xs text-indigo-300">Powered by GPT-4o Dinoiki</p>
+            </div>
+        </div>
+        <button onclick="toggleModal()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition">
+            <i class="fas fa-upload"></i> Update Data
+        </button>
+    </header>
+
+    <!-- Chat Area -->
+    <main id="chatbox" class="flex-1 overflow-y-auto p-6 space-y-4 chat-area">
+        <div class="flex items-start gap-3">
+            <div class="bg-white p-4 shadow-sm ai-bubble text-slate-700 max-w-2xl border">
+                Halo Pak Adnan, saya siap membantu menganalisis data KPI Maintenance Kilang. Silahkan ajukan pertanyaan Anda.
+            </div>
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="p-6 bg-white border-t shadow-inner">
+        <div class="max-w-4xl mx-auto flex gap-3">
+            <input type="text" id="userInput" placeholder="Tanya sesuatu tentang RU, MTBF, atau Area..." 
+                class="flex-1 p-4 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                onkeypress="if(event.key === 'Enter') sendQuestion()">
+            <button onclick="sendQuestion()" class="bg-indigo-600 text-white px-6 rounded-2xl hover:bg-indigo-700 transition shadow-md">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-800">Upload Data Excel</h3>
+                <button onclick="toggleModal()" class="text-slate-400">&times;</button>
+            </div>
+            <input type="file" id="excelFile" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-6" />
+            <button onclick="processUpload()" id="syncBtn" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">
+                Mulai Sinkronisasi
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const chatbox = document.getElementById('chatbox');
+        function toggleModal() { document.getElementById('uploadModal').classList.toggle('hidden'); }
+
+        async function sendQuestion() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            // User Message
+            chatbox.innerHTML += `<div class="flex justify-end"><div class="bg-indigo-600 text-white p-4 shadow-sm user-bubble max-w-2xl">${text}</div></div>`;
+            input.value = '';
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            // AI Loading
+            const loadingId = 'loading-' + Date.now();
+            chatbox.innerHTML += `<div id="${loadingId}" class="flex items-start gap-3"><div class="bg-white p-4 shadow-sm ai-bubble text-slate-400 italic border">Sedang menganalisis data...</div></div>`;
+            chatbox.scrollTop = chatbox.scrollHeight;
+
+            try {
+                const res = await fetch(`/ask?question=${encodeURIComponent(text)}`);
+                const data = await res.json();
+                document.getElementById(loadingId).remove();
+                chatbox.innerHTML += `<div class="flex items-start gap-3"><div class="bg-white p-4 shadow-sm ai-bubble text-slate-700 max-w-2xl border">${data.answer || data.error}</div></div>`;
+            } catch {
+                document.getElementById(loadingId).remove();
+                chatbox.innerHTML += `<div class="flex items-start gap-3"><div class="bg-red-50 text-red-600 p-4 shadow-sm ai-bubble max-w-2xl border">Gagal menghubungi AI.</div></div>`;
+            }
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        async function processUpload() {
+            const fileInput = document.getElementById('excelFile');
+            if(fileInput.files.length === 0) return alert("Pilih file!");
+            const btn = document.getElementById('syncBtn');
+            btn.innerText = "Proses..."; btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            const res = await fetch('/upload-sync', { method: 'POST', body: formData });
+            const data = await res.json();
+            alert(data.message || data.error);
+            btn.innerText = "Mulai Sinkronisasi"; btn.disabled = false;
+            toggleModal();
+        }
+    </script>
+</body>
+</html>
