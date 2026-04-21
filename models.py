@@ -1,21 +1,13 @@
-from sqlalchemy import Column, Integer, String, Float, Text
+from sqlalchemy import Column, Integer, String, Float
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
-class KPIData(Base):
-    __tablename__ = "kpi_maintenance"
+class AnggaranMaintenance(Base):
+    __tablename__ = "anggaran_maintenance"
     id = Column(Integer, primary_key=True, index=True)
-    id_kpi = Column(String(50))
-    ru = Column(String(100))
-    area = Column(String(100))
-    kategori = Column(String(100))
-    nama_kpi = Column(String(255))
-    deskripsi = Column(Text)
-    satuan = Column(String(20))
-    target = Column(Float)
-    realisasi = Column(Float)
-    pencapaian = Column(String(50))
-    status = Column(String(50))
-    analisis = Column(Text)
-    rekomendasi = Column(Text)
+    ru = Column(String(20))          # RU II, RU III, ..., All RUs
+    tahun = Column(Integer)          # 2018 - 2025
+    kategori = Column(String(50))    # RUTIN, NON RUTIN, TURN AROUND, OVERHAUL, TOTAL
+    tipe = Column(String(10))        # RKAP, PLAN, AKTUAL
+    nilai_usd = Column(Float)        # Nilai dalam USD
