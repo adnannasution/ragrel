@@ -642,7 +642,7 @@ def sync_paf(file_location: str, db: Session):
     db.query(PAF).delete()
     count = 0
     for _, row in df.iterrows():
-        g = lambda c: _safe(row.get(c)) if pd.notna(row.get(c)) if row.get(c) is not None else False else ''
+        g = lambda c: _safe(row.get(c)) if row.get(c) is not None and pd.notna(row.get(c)) else ''
         db.add(PAF(
             month_update     = _safe(row.get('Month Update')),
             type             = _safe(row.get('Type')),
