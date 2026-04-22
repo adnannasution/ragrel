@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -67,6 +67,7 @@ ATURAN QUERY SQL:
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
 - Untuk bad_actor_monitoring: kolom utama adalah ru, tag_number, status, problem, action_plan, progress, target_date.
 - Untuk icu_monitoring: kolom utama adalah ru, icu_status (Medium/High/Critical/Low), tag_no, issue, mitigation, permanent_solution, progress, target_closed, report_date.
+- Untuk program_kerja_atg: kolom utama adalah refinery_unit, type, atg_eksisting, program_2024, prokja (progress), action_plan_category, target, month_update.
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -128,6 +129,7 @@ async def upload_sync(
             "metering":  sync_metering,
             "badactor":  sync_badactor,
             "icu":       sync_icu,
+            "prokja_atg": sync_prokja_atg,
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -442,6 +444,44 @@ def sync_icu(file_location: str, db: Session):
     db.commit()
     return {"message": f"✅ ICU Monitoring berhasil diupdate! ({count} records)"}
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSER: PROGRAM KERJA ATG
+# ─────────────────────────────────────────────────────────────────────────────
+def sync_prokja_atg(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(ProgramKerjaATG).delete()
+    count = 0
+    for _, row in df.iterrows():
+        def g(col):
+            v = row.get(col)
+            try:
+                return _safe(v) if pd.notna(v) else ""
+            except Exception:
+                return _safe(v)
+
+        mu = row.get("Month Update")
+        try:
+            month_update = str(mu.date()) if pd.notna(mu) and hasattr(mu, "date") else _safe(mu)
+        except Exception:
+            month_update = _safe(mu)
+
+        db.add(ProgramKerjaATG(
+            refinery_unit        = g("Refinery Unit"),
+            type                 = g("Type"),
+            atg_eksisting        = g("ATG Eksisting"),
+            program_2024         = g("Program 2024"),
+            prokja               = g("Prokja"),
+            action_plan_category = g("Action Plan Category"),
+            external_resource    = g("External Resource"),
+            no_irkap             = g("NO.IRKAP"),
+            target               = g("Target"),
+            month_update         = month_update,
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Program Kerja ATG berhasil diupdate! ({count} records)"}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # TABLE STATS ENDPOINT
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,7 +497,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -466,6 +506,7 @@ def table_stats(db: Session = Depends(get_db)):
         "metering": "metering_monitoring",
         "badactor": "bad_actor_monitoring",
         "icu":      "icu_monitoring",
+        "prokja_atg": "program_kerja_atg",
     }
     return {
         k: {

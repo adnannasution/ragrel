@@ -131,3 +131,18 @@ class MeteringMonitoring(Base):
     no_irkap              = Column(Text)
     status_rtl            = Column(Text)
     month_update          = Column(Text)
+
+# ─── 7. PROGRAM KERJA ATG ────────────────────────────────────────────────────
+class ProgramKerjaATG(Base):
+    __tablename__ = "program_kerja_atg"
+    id                   = Column(Integer, primary_key=True, index=True)
+    refinery_unit        = Column(Text)
+    type                 = Column(Text)
+    atg_eksisting        = Column(Text)
+    program_2024         = Column(Text)
+    prokja               = Column(Text)
+    action_plan_category = Column(Text)
+    external_resource    = Column(Text)
+    no_irkap             = Column(Text)
+    target               = Column(Text)
+    month_update         = Column(Text)
