@@ -95,16 +95,25 @@ class BadActorMonitoring(Base):
 # ─── 5b. ICU (INTEGRITY CONCERN UNIT) ────────────────────────────────────────
 class ICUMonitoring(Base):
     __tablename__ = "icu_monitoring"
-    id              = Column(Integer, primary_key=True, index=True)
-    update_date     = Column(String(50))
-    ru              = Column(String(50))
-    severity        = Column(String(50))
-    equipment       = Column(Text)
-    problem         = Column(Text)
-    action_plan     = Column(Text)
-    no_irkap        = Column(Text)
-    progress        = Column(Text)
-    target_year     = Column(String(20))
+    id                          = Column(Integer, primary_key=True, index=True)
+    report_date                 = Column(String(50))
+    ru                          = Column(String(50))
+    icu_status                  = Column(String(50))
+    tag_no                      = Column(Text)
+    issue                       = Column(Text)
+    mitigation                  = Column(Text)
+    mitigasi_category           = Column(String(100))
+    mitigation_external         = Column(String(10))
+    irkap_mitigation            = Column(Text)
+    remark_mitigation           = Column(Text)
+    permanent_solution          = Column(Text)
+    solution_category           = Column(String(100))
+    solution_external           = Column(String(10))
+    irkap_solution              = Column(Text)
+    remark_solution             = Column(Text)
+    progress                    = Column(Text)
+    info                        = Column(Text)
+    target_closed               = Column(Text)
 
 # ─── 6. METERING MONITORING ──────────────────────────────────────────────────
 class MeteringMonitoring(Base):

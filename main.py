@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 import pandas as pd
+from datetime import datetime
 from fastapi import FastAPI, Depends, Request, UploadFile, File, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -15,6 +16,21 @@ from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
 
 load_dotenv()
+
+UPLOAD_REGISTRY = "upload_registry.json"
+
+def _load_registry() -> dict:
+    if os.path.exists(UPLOAD_REGISTRY):
+        try:
+            return json.load(open(UPLOAD_REGISTRY))
+        except:
+            pass
+    return {}
+
+def _save_upload_time(data_type: str):
+    registry = _load_registry()
+    registry[data_type] = datetime.now().strftime("%d %b %Y, %H:%M")
+    json.dump(registry, open(UPLOAD_REGISTRY, "w"))
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -50,7 +66,7 @@ ATURAN QUERY SQL:
 - Gunakan ROUND(nilai::numeric, 2) untuk pembulatan.
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
 - Untuk bad_actor_monitoring: kolom utama adalah ru, tag_number, status, problem, action_plan, progress, target_date.
-- Untuk icu_monitoring: kolom utama adalah ru, severity, equipment, problem, action_plan, progress, target_year. severity berisi nilai seperti 'Medium', 'High', 'Critical'.
+- Untuk icu_monitoring: kolom utama adalah ru, icu_status (Medium/High/Critical/Low), tag_no, issue, mitigation, permanent_solution, progress, target_closed, report_date.
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -115,6 +131,7 @@ async def upload_sync(
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
         result = handlers[data_type](file_location, db)
+        _save_upload_time(data_type)
         return result
     except Exception as e:
         db.rollback()
@@ -193,8 +210,8 @@ def sync_pipeline(file_location: str, db: Session):
             to_location             = str(row.get('To', '') or ''),
             last_measured_thickness = float(row['Last Measured Thickness']) if pd.notna(row.get('Last Measured Thickness')) else None,
             rem_life_years          = float(row['RemLifeLastInspYears']) if pd.notna(row.get('RemLifeLastInspYears')) else None,
-            jumlah_temporary_repair = int(row['JumlahTemporary Repair']) if pd.notna(row.get('JumlahTemporary Repair')) else None,
-            remarks                 = str(row.get('Remarks', '') or ''),
+            jumlah_temporary_repair = (lambda v: int(v) if pd.notna(v) and str(v).strip().lstrip('-').isdigit() else None)(row.get('JumlahTemporary Repair')),
+            remarks                 = str(row.get('Remarks', '') or '') + (f" [Temporary Repair: {row.get('JumlahTemporary Repair')}]" if pd.notna(row.get('JumlahTemporary Repair')) and not str(row.get('JumlahTemporary Repair')).strip().lstrip('-').isdigit() else ''),
             bulan                   = str(row.get('Bulan', '') or ''),
             tahun                   = int(row['Tahun']) if pd.notna(row.get('Tahun')) else None,
         ))
@@ -324,29 +341,94 @@ def sync_badactor(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 # PARSER: ICU (INTEGRITY CONCERN UNIT)
 # ─────────────────────────────────────────────────────────────────────────────
+def _safe(val) -> str:
+    """Konversi nilai Excel ke string bersih — strip whitespace dan newline berlebih."""
+    if val is None:
+        return ''
+    try:
+        import pandas as _pd
+        if _pd.isna(val):
+            return ''
+    except Exception:
+        pass
+    return str(val).strip()
+
 def sync_icu(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=None)
+    # Baris 0 = header, data mulai baris 1
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
     db.query(ICUMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
-        # Struktur kolom: 0=date, 1=RU, 2=severity, 3=equipment, 4=problem,
-        # 10=action_plan, 13=no_irkap, 15=progress, 17=target_year
-        update_date = row.iloc[0]
-        update_date_str = str(update_date.date()) if pd.notna(update_date) and hasattr(update_date, 'date') else str(update_date or '')
+        def g(col):
+            v = row.get(col)
+            try:
+                return _safe(v) if pd.notna(v) else ''
+            except Exception:
+                return _safe(v)
+
+        # report_date: bisa datetime atau string
+        rd = row.get('Report Date')
+        if pd.notna(rd) and hasattr(rd, 'date'):
+            report_date = str(rd.date())
+        else:
+            report_date = _safe(rd)
+
         db.add(ICUMonitoring(
-            update_date  = update_date_str,
-            ru           = str(row.iloc[1] if pd.notna(row.iloc[1]) else ''),
-            severity     = str(row.iloc[2] if pd.notna(row.iloc[2]) else ''),
-            equipment    = str(row.iloc[3] if pd.notna(row.iloc[3]) else ''),
-            problem      = str(row.iloc[4] if pd.notna(row.iloc[4]) else ''),
-            action_plan  = str(row.iloc[10] if pd.notna(row.iloc[10]) else ''),
-            no_irkap     = str(row.iloc[13] if pd.notna(row.iloc[13]) else ''),
-            progress     = str(row.iloc[15] if pd.notna(row.iloc[15]) else ''),
-            target_year  = str(row.iloc[17] if pd.notna(row.iloc[17]) else ''),
+            report_date        = report_date,
+            ru                 = g('RU'),
+            icu_status         = g('ICU Status'),
+            tag_no             = g('Tag No'),
+            issue              = g('Issue'),
+            mitigation         = g('Mitigation/Temporary Solution'),
+            mitigasi_category  = g('Mitigasi Category'),
+            mitigation_external= g('Mitigation Need External Resource?'),
+            irkap_mitigation   = g('IRKAP Mitigation'),
+            remark_mitigation  = g('Remark Mitigation'),
+            permanent_solution = g('Permanent Solution'),
+            solution_category  = g('Solution Category'),
+            solution_external  = g('Solution Need External Resource?'),
+            irkap_solution     = g('IRKAP Solution'),
+            remark_solution    = g('Remark Solution'),
+            progress           = g('Progres'),
+            info               = g('Info'),
+            target_closed      = g('Target Closed'),
         ))
         count += 1
     db.commit()
     return {"message": f"✅ ICU Monitoring berhasil diupdate! ({count} records)"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TABLE STATS ENDPOINT
+# ─────────────────────────────────────────────────────────────────────────────
+@app.get("/table-stats")
+def table_stats(db: Session = Depends(get_db)):
+    from sqlalchemy import text, inspect
+    registry = _load_registry()
+    insp = inspect(engine)
+    existing = insp.get_table_names()
+
+    def count(table: str) -> int:
+        if table not in existing:
+            return 0
+        return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
+
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu"]
+    tables = {
+        "anggaran": "anggaran_maintenance",
+        "pipeline": "pipeline_inspection",
+        "rotor":    "rotor_monitoring",
+        "atg":      "atg_monitoring",
+        "metering": "metering_monitoring",
+        "badactor": "bad_actor_monitoring",
+        "icu":      "icu_monitoring",
+    }
+    return {
+        k: {
+            "rows":    count(tables[k]),
+            "updated": registry.get(k),   # timestamp upload nyata
+        }
+        for k in keys
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # AI ENDPOINT — SSE streaming dengan progress real
