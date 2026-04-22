@@ -12,3 +12,4 @@ langchain-community
 langchain-experimental
 langchain-core
 python-multipart
+openpyxl
