@@ -214,7 +214,7 @@ def sync_anggaran(file_location: str, db: Session):
 # PARSER: PIPELINE
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_pipeline(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
+    df = pd.read_excel(file_location, sheet_name=0)
     db.query(PipelineInspection).delete()
     count = 0
     for _, row in df.iterrows():
@@ -244,7 +244,7 @@ def sync_pipeline(file_location: str, db: Session):
 # PARSER: ROTOR
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_rotor(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
+    df = pd.read_excel(file_location, sheet_name=0)
     db.query(RotorMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -274,7 +274,7 @@ def sync_rotor(file_location: str, db: Session):
 # PARSER: ATG
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_atg(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
+    df = pd.read_excel(file_location, sheet_name=0)
     db.query(ATGMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -302,7 +302,7 @@ def sync_atg(file_location: str, db: Session):
 # PARSER: METERING
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_metering(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
+    df = pd.read_excel(file_location, sheet_name=0)
     db.query(MeteringMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -328,7 +328,7 @@ def sync_metering(file_location: str, db: Session):
 # PARSER: BAD ACTOR
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_badactor(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
+    df = pd.read_excel(file_location, sheet_name=0)
     db.query(BadActorMonitoring).delete()
     # Gabungkan kolom No IRKAP 1-5 menjadi satu string
     irkap_cols = ['No IRKAP 1', 'No IRKAP 2', 'No IRKAP 3', 'No IRKAP 4', 'No IRKAP 5']
@@ -376,7 +376,7 @@ def _safe(val) -> str:
 
 def sync_icu(file_location: str, db: Session):
     # Baca dengan header=0, lalu rename kolom duplikat ke nama aslinya (hapus suffix _0, _1, dst)
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
 
     # Normalisasi nama kolom — hapus suffix duplikat pandas (_0, _1, .1, .2, dst)
     import re
@@ -467,7 +467,7 @@ def sync_icu(file_location: str, db: Session):
 # PARSER: PROGRAM KERJA ATG
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_prokja_atg(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(ProgramKerjaATG).delete()
     count = 0
     for _, row in df.iterrows():
@@ -641,7 +641,7 @@ def _to_date_str(v):
         return _safe(v)
 
 def sync_paf(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(PAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -666,7 +666,7 @@ def sync_paf(file_location: str, db: Session):
     return {"message": f"✅ PAF berhasil diupdate! ({count} records)"}
 
 def sync_zero_clamp(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(ZeroClamp).delete()
     count = 0
     for _, row in df.iterrows():
@@ -693,7 +693,7 @@ def sync_zero_clamp(file_location: str, db: Session):
     return {"message": f"✅ Zero Clamp berhasil diupdate! ({count} records)"}
 
 def sync_issue_paf(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(IssuePAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -710,7 +710,7 @@ def sync_issue_paf(file_location: str, db: Session):
     return {"message": f"✅ Issue PAF berhasil diupdate! ({count} records)"}
 
 def sync_power_stream(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(PowerStream).delete()
     count = 0
     for _, row in df.iterrows():
@@ -734,7 +734,7 @@ def sync_power_stream(file_location: str, db: Session):
     return {"message": f"✅ Power & Steam berhasil diupdate! ({count} records)"}
 
 def sync_jumlah_eqp(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(JumlahEqpUTL).delete()
     count = 0
     for _, row in df.iterrows():
@@ -751,7 +751,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
     return {"message": f"✅ Jumlah Equipment UTL berhasil diupdate! ({count} records)"}
 
 def sync_critical_utl(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(CriticalEqpUTL).delete()
     count = 0
     for _, row in df.iterrows():
@@ -773,7 +773,7 @@ def sync_critical_utl(file_location: str, db: Session):
     return {"message": f"✅ Critical Equipment UTL berhasil diupdate! ({count} records)"}
 
 def sync_critical_prim(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(CriticalEqpPrimSec).delete()
     count = 0
     for _, row in df.iterrows():
@@ -796,7 +796,7 @@ def sync_critical_prim(file_location: str, db: Session):
     return {"message": f"✅ Critical Equipment Prim & Sec berhasil diupdate! ({count} records)"}
 
 def sync_mon_operasi(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(MonitoringOperasi).delete()
     count = 0
     for _, row in df.iterrows():
@@ -827,7 +827,7 @@ def sync_mon_operasi(file_location: str, db: Session):
     return {"message": f"✅ Monitoring Operasi berhasil diupdate! ({count} records)"}
 
 def sync_inspection_plan(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
     db.query(InspectionPlan).delete()
     count = 0
     for _, row in df.iterrows():
