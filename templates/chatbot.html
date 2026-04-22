@@ -23,6 +23,12 @@
         .stat-rows { font-size:0.68rem; font-weight:600; color:#6366f1; margin-top:4px; min-height:14px; }
         .stat-upd  { font-size:0.62rem; color:#cbd5e1; line-height:1.3; min-height:12px; }
 
+        /* ── Upload Progress ── */
+        #uploadProgress { transition: all 0.3s ease; }
+        .progress-bar-inner { transition: width 0.4s ease; }
+        @keyframes progress-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+        .progress-pulsing { animation: progress-pulse 1s ease-in-out infinite; }
+
         /* ── Loading Status Steps ── */
         .loading-bubble { animation: fadeInUp 0.3s ease; }
         @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
@@ -75,7 +81,15 @@
                 📏 <b>Metering Monitoring</b> — Status metering & sertifikasi<br>
                 🚨 <b>Bad Actor Monitoring</b> — Equipment bermasalah, action plan & progress<br>
                 🔴 <b>ICU Monitoring</b> — Integrity Concern Unit, severity & mitigasi<br>
-                📋 <b>Program Kerja ATG</b> — Program kerja, prokja & target ATG per RU<br><br>
+                📋 <b>Program Kerja ATG</b> — Program kerja, prokja & target ATG per RU<br>
+                📈 <b>PAF</b> — Plant Availability Factor, target vs realisasi per RU<br>
+                🔩 <b>Zero Clamp</b> — Monitoring temporary repair zero clamp<br>
+                ⚠️ <b>Issue PAF</b> — Daftar issue yang mempengaruhi PAF<br>
+                ⚡ <b>Power & Steam</b> — Status operasi equipment power & steam<br>
+                🏭 <b>Jumlah Eqp UTL</b> — Jumlah equipment utility per status<br>
+                🚧 <b>Critical Eqp UTL</b> — Critical equipment utility & mitigasi<br>
+                🔴 <b>Critical Prim/Sec</b> — Critical equipment primary & secondary<br>
+                📊 <b>Monitoring Operasi</b> — Kapasitas & aktual operasi unit proses<br><br>
                 Silakan ajukan pertanyaan, termasuk yang <b>lintas tabel</b>.
             </div>
         </div>
@@ -161,10 +175,81 @@
                     <div class="stat-rows" id="stat-rows-prokja_atg"></div>
                     <div class="stat-upd"  id="stat-upd-prokja_atg"></div>
                 </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="paf" onclick="selectType('paf', this)">
+                    <div class="text-2xl mb-1">📈</div>
+                    <div class="text-xs font-semibold text-gray-700">PAF</div>
+                    <div class="text-xs text-gray-400">PAF_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-paf"></div>
+                    <div class="stat-upd"  id="stat-upd-paf"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="zero_clamp" onclick="selectType('zero_clamp', this)">
+                    <div class="text-2xl mb-1">🔩</div>
+                    <div class="text-xs font-semibold text-gray-700">Zero Clamp</div>
+                    <div class="text-xs text-gray-400">zero_clamp_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-zero_clamp"></div>
+                    <div class="stat-upd"  id="stat-upd-zero_clamp"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="issue_paf" onclick="selectType('issue_paf', this)">
+                    <div class="text-2xl mb-1">⚠️</div>
+                    <div class="text-xs font-semibold text-gray-700">Issue PAF</div>
+                    <div class="text-xs text-gray-400">Issue_PAF_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-issue_paf"></div>
+                    <div class="stat-upd"  id="stat-upd-issue_paf"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="power_stream" onclick="selectType('power_stream', this)">
+                    <div class="text-2xl mb-1">⚡</div>
+                    <div class="text-xs font-semibold text-gray-700">Power & Steam</div>
+                    <div class="text-xs text-gray-400">power_stream_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-power_stream"></div>
+                    <div class="stat-upd"  id="stat-upd-power_stream"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="jumlah_eqp" onclick="selectType('jumlah_eqp', this)">
+                    <div class="text-2xl mb-1">🏭</div>
+                    <div class="text-xs font-semibold text-gray-700">Jumlah Eqp UTL</div>
+                    <div class="text-xs text-gray-400">Jumlah_Eqp_UTL_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-jumlah_eqp"></div>
+                    <div class="stat-upd"  id="stat-upd-jumlah_eqp"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="critical_utl" onclick="selectType('critical_utl', this)">
+                    <div class="text-2xl mb-1">🚧</div>
+                    <div class="text-xs font-semibold text-gray-700">Critical Eqp UTL</div>
+                    <div class="text-xs text-gray-400">Critical_Equipment_UTL_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-critical_utl"></div>
+                    <div class="stat-upd"  id="stat-upd-critical_utl"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="critical_prim" onclick="selectType('critical_prim', this)">
+                    <div class="text-2xl mb-1">🔴</div>
+                    <div class="text-xs font-semibold text-gray-700">Critical Prim/Sec</div>
+                    <div class="text-xs text-gray-400">Critical_Eqp_Prim_Sec_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-critical_prim"></div>
+                    <div class="stat-upd"  id="stat-upd-critical_prim"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="mon_operasi" onclick="selectType('mon_operasi', this)">
+                    <div class="text-2xl mb-1">📊</div>
+                    <div class="text-xs font-semibold text-gray-700">Monitoring Operasi</div>
+                    <div class="text-xs text-gray-400">monitoring_operasi_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-mon_operasi"></div>
+                    <div class="stat-upd"  id="stat-upd-mon_operasi"></div>
+                </div>
             </div>
 
             <input type="file" id="excelFile" accept=".xlsx,.xls"
                 class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-4" />
+
+            <!-- Upload Progress -->
+            <div id="uploadProgress" class="hidden mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-semibold text-indigo-600" id="uploadProgressLabel">Memproses...</span>
+                    <span class="text-xs text-gray-400" id="uploadProgressPct">0%</span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div id="uploadProgressBar" class="progress-bar-inner bg-indigo-500 h-2.5 rounded-full progress-pulsing" style="width:0%"></div>
+                </div>
+                <div class="flex items-center gap-1.5 mt-2">
+                    <div class="spinner" style="width:10px;height:10px;border-width:1.5px"></div>
+                    <span class="text-xs text-gray-400" id="uploadProgressStep">Mengunggah file...</span>
+                </div>
+            </div>
 
             <button onclick="processUpload()" id="syncBtn"
                 class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition text-sm">
@@ -462,14 +547,57 @@
     }
 
     // ── UPLOAD ─────────────────────────────────────────────────────────────────
+    const UPLOAD_STEPS = [
+        { pct: 15,  label: 'Mengunggah file ke server...' },
+        { pct: 40,  label: 'Membaca & memvalidasi Excel...' },
+        { pct: 65,  label: 'Menyinkronkan ke database...' },
+        { pct: 85,  label: 'Menyimpan perubahan...' },
+        { pct: 100, label: 'Selesai ✓' },
+    ];
+
+    function showUploadProgress(show) {
+        document.getElementById('uploadProgress').classList.toggle('hidden', !show);
+        document.getElementById('excelFile').classList.toggle('hidden', show);
+    }
+
+    function setUploadProgress(pct, label) {
+        document.getElementById('uploadProgressBar').style.width = pct + '%';
+        document.getElementById('uploadProgressPct').textContent = pct + '%';
+        document.getElementById('uploadProgressStep').textContent = label;
+        if (pct >= 100) {
+            document.getElementById('uploadProgressBar').classList.remove('progress-pulsing');
+            document.getElementById('uploadProgressBar').classList.add('bg-green-500');
+            document.getElementById('uploadProgressLabel').textContent = 'Upload Berhasil!';
+            document.getElementById('uploadProgressLabel').classList.add('text-green-600');
+            document.getElementById('uploadProgressLabel').classList.remove('text-indigo-600');
+        }
+    }
+
     async function processUpload() {
         if (!selectedDataType) return alert('Pilih jenis data terlebih dahulu!');
         const fileInput = document.getElementById('excelFile');
         if (fileInput.files.length === 0) return alert('Pilih file Excel terlebih dahulu!');
 
         const btn = document.getElementById('syncBtn');
-        btn.innerText = 'Proses...';
         btn.disabled = true;
+        btn.textContent = 'Memproses...';
+        showUploadProgress(true);
+
+        // Reset progress
+        document.getElementById('uploadProgressBar').className = 'progress-bar-inner bg-indigo-500 h-2.5 rounded-full progress-pulsing';
+        document.getElementById('uploadProgressLabel').textContent = 'Memproses...';
+        document.getElementById('uploadProgressLabel').className = 'text-xs font-semibold text-indigo-600';
+        setUploadProgress(0, 'Mempersiapkan file...');
+
+        // Animasi step sebelum server selesai
+        let stepIdx = 0;
+        const stepTimer = setInterval(() => {
+            if (stepIdx < UPLOAD_STEPS.length - 1) {
+                const s = UPLOAD_STEPS[stepIdx];
+                setUploadProgress(s.pct, s.label);
+                stepIdx++;
+            }
+        }, 800);
 
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
@@ -478,12 +606,31 @@
         try {
             const res = await fetch('/upload-sync', { method: 'POST', body: formData });
             const data = await res.json();
-            alert(data.message || data.error);
-            fetchTableStats();
+            clearInterval(stepTimer);
+
+            if (data.error) {
+                // Error state
+                setUploadProgress(100, '');
+                document.getElementById('uploadProgressBar').className = 'progress-bar-inner bg-red-500 h-2.5 rounded-full';
+                document.getElementById('uploadProgressLabel').textContent = 'Upload Gagal';
+                document.getElementById('uploadProgressLabel').className = 'text-xs font-semibold text-red-600';
+                document.getElementById('uploadProgressStep').textContent = data.error;
+                await new Promise(r => setTimeout(r, 2500));
+            } else {
+                setUploadProgress(100, 'Selesai ✓');
+                fetchTableStats();
+                await new Promise(r => setTimeout(r, 1000));
+                alert(data.message);
+            }
         } catch(e) {
-            alert('Terjadi kesalahan saat upload.');
+            clearInterval(stepTimer);
+            setUploadProgress(100, '');
+            document.getElementById('uploadProgressBar').className = 'progress-bar-inner bg-red-500 h-2.5 rounded-full';
+            document.getElementById('uploadProgressStep').textContent = 'Gagal menghubungi server.';
+            await new Promise(r => setTimeout(r, 2000));
         } finally {
-            btn.innerText = 'Mulai Sinkronisasi';
+            showUploadProgress(false);
+            btn.textContent = 'Mulai Sinkronisasi';
             btn.disabled = false;
             document.getElementById('uploadModal').classList.add('hidden');
         }

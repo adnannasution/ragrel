@@ -146,3 +146,140 @@ class ProgramKerjaATG(Base):
     no_irkap             = Column(Text)
     target               = Column(Text)
     month_update         = Column(Text)
+
+# ─── 8. PAF (Plant Availability Factor) ──────────────────────────────────────
+class PAF(Base):
+    __tablename__ = "paf"
+    id               = Column(Integer, primary_key=True, index=True)
+    month_update     = Column(Text)
+    type             = Column(Text)
+    ru               = Column(Text)
+    target_realisasi = Column(Text)
+    color            = Column(Text)
+    value            = Column(Float)
+    plan_unplan      = Column(Text)
+    type2            = Column(Text)
+    month            = Column(Text)
+    value2           = Column(Float)
+    ru2              = Column(Text)
+    target           = Column(Float)
+    code_current     = Column(Integer)
+
+# ─── 9. ZERO CLAMP MONITORING ────────────────────────────────────────────────
+class ZeroClamp(Base):
+    __tablename__ = "zero_clamp"
+    id                              = Column(Integer, primary_key=True, index=True)
+    no                              = Column(Integer)
+    ru                              = Column(Text)
+    area                            = Column(Text)
+    unit                            = Column(Text)
+    tag_no_ln                       = Column(Text)
+    services                        = Column(Text)
+    description                     = Column(Text)
+    type_damage                     = Column(Text)
+    posisi                          = Column(Text)
+    type_perbaikan                  = Column(Text)
+    tanggal_dipasang                = Column(Text)
+    tanggal_dilepas                 = Column(Text)
+    tanggal_rencana_perbaikan       = Column(Text)
+    no_irkap                        = Column(Text)
+    status                          = Column(Text)
+    remarks                         = Column(Text)
+
+# ─── 10. ISSUE PAF ───────────────────────────────────────────────────────────
+class IssuePAF(Base):
+    __tablename__ = "issue_paf"
+    id           = Column(Integer, primary_key=True, index=True)
+    type         = Column(Text)
+    ru           = Column(Text)
+    date         = Column(Text)
+    issue        = Column(Text)
+    month_update = Column(Text)
+    code_current = Column(Integer)
+
+# ─── 11. POWER & STEAM ───────────────────────────────────────────────────────
+class PowerStream(Base):
+    __tablename__ = "power_stream"
+    id               = Column(Integer, primary_key=True, index=True)
+    refinery_unit    = Column(Text)
+    type_equipment   = Column(Text)
+    equipment        = Column(Text)
+    status_operation = Column(Text)
+    status_n0        = Column(Text)
+    unit_measurement = Column(Text)
+    desain           = Column(Float)
+    kapasitas_max    = Column(Float)
+    average_actual   = Column(Float)
+    remark           = Column(Text)
+    date_update      = Column(Text)
+    month_update     = Column(Text)
+    code_current     = Column(Integer)
+
+# ─── 12. JUMLAH EQUIPMENT UTL ────────────────────────────────────────────────
+class JumlahEqpUTL(Base):
+    __tablename__ = "jumlah_eqp_utl"
+    id               = Column(Integer, primary_key=True, index=True)
+    refinery_unit    = Column(Text)
+    type_equipment   = Column(Text)
+    status_equipment = Column(Text)
+    jumlah           = Column(Integer)
+    month_update     = Column(Text)
+    code_current     = Column(Integer)
+
+# ─── 13. CRITICAL EQUIPMENT UTL ──────────────────────────────────────────────
+class CriticalEqpUTL(Base):
+    __tablename__ = "critical_eqp_utl"
+    id                     = Column(Integer, primary_key=True, index=True)
+    refinery_unit          = Column(Text)
+    type_equipment         = Column(Text)
+    highlight_issue        = Column(Text)
+    corrective_action      = Column(Text)
+    target_corrective      = Column(Text)
+    traffic_corrective     = Column(Text)
+    mitigasi_action        = Column(Text)
+    target_mitigasi        = Column(Text)
+    traffic_mitigasi       = Column(Text)
+    month_update           = Column(Text)
+    code_current           = Column(Integer)
+
+# ─── 14. CRITICAL EQUIPMENT PRIMARY & SECONDARY ───────────────────────────────
+class CriticalEqpPrimSec(Base):
+    __tablename__ = "critical_eqp_prim_sec"
+    id                = Column(Integer, primary_key=True, index=True)
+    refinery_unit     = Column(Text)
+    unit_proses       = Column(Text)
+    equipment         = Column(Text)
+    highlight_issue   = Column(Text)
+    corrective_action = Column(Text)
+    target_corrective = Column(Text)
+    traffic_corrective= Column(Text)
+    mitigasi_action   = Column(Text)
+    target_mitigasi   = Column(Text)
+    traffic_mitigasi  = Column(Text)
+    month_update      = Column(Text)
+    code_current      = Column(Integer)
+
+# ─── 15. MONITORING OPERASI ──────────────────────────────────────────────────
+class MonitoringOperasi(Base):
+    __tablename__ = "monitoring_operasi"
+    id                     = Column(Integer, primary_key=True, index=True)
+    refinery_unit          = Column(Text)
+    unit_proses            = Column(Text)
+    unit                   = Column(Text)
+    unit_measurement       = Column(Text)
+    design                 = Column(Float)
+    minimal_capacity       = Column(Float)
+    plant_readiness        = Column(Float)
+    remark                 = Column(Text)
+    type_limitasi_process  = Column(Text)
+    equipment_process      = Column(Text)
+    limitasi_alert_process = Column(Text)
+    mitigasi_process       = Column(Text)
+    target_sts             = Column(Float)
+    actual                 = Column(Float)
+    type_limitasi_sts      = Column(Text)
+    equipment_sts          = Column(Text)
+    limitasi_alert_sts     = Column(Text)
+    mitigasi_sts           = Column(Text)
+    month_update           = Column(Text)
+    code_current           = Column(Integer)

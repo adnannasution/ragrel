@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -68,6 +68,14 @@ ATURAN QUERY SQL:
 - Untuk bad_actor_monitoring: kolom utama adalah ru, tag_number, status, problem, action_plan, progress, target_date.
 - Untuk icu_monitoring: kolom utama adalah ru, icu_status (Medium/High/Critical/Low), tag_no, issue, mitigation, permanent_solution, progress, target_closed, report_date.
 - Untuk program_kerja_atg: kolom utama adalah refinery_unit, type, atg_eksisting, program_2024, prokja (progress), action_plan_category, target, month_update.
+- Untuk paf: Plant Availability Factor — kolom type, ru, target_realisasi, value (angka PAF), plan_unplan, month.
+- Untuk zero_clamp: monitoring temporary repair zero clamp — kolom ru, area, unit, tag_no_ln, type_damage, type_perbaikan, status, tanggal_dipasang, tanggal_rencana_perbaikan.
+- Untuk issue_paf: daftar issue yang mempengaruhi PAF — kolom type (Primary/Secondary Unit), ru, date, issue.
+- Untuk power_stream: status operasi equipment power & steam — kolom refinery_unit, type_equipment, equipment, status_operation, desain, kapasitas_max, average_actual.
+- Untuk jumlah_eqp_utl: jumlah equipment utility per status — kolom refinery_unit, type_equipment, status_equipment, jumlah.
+- Untuk critical_eqp_utl: critical equipment utility — kolom refinery_unit, type_equipment, highlight_issue, corrective_action, mitigasi_action, target_corrective.
+- Untuk critical_eqp_prim_sec: critical equipment primary & secondary — kolom refinery_unit, unit_proses, equipment, highlight_issue, corrective_action, mitigasi_action.
+- Untuk monitoring_operasi: monitoring kapasitas operasi unit proses — kolom refinery_unit, unit_proses, unit, design, minimal_capacity, plant_readiness, actual, target_sts.
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -129,7 +137,15 @@ async def upload_sync(
             "metering":  sync_metering,
             "badactor":  sync_badactor,
             "icu":       sync_icu,
-            "prokja_atg": sync_prokja_atg,
+            "prokja_atg":     sync_prokja_atg,
+            "paf":            sync_paf,
+            "zero_clamp":     sync_zero_clamp,
+            "issue_paf":      sync_issue_paf,
+            "power_stream":   sync_power_stream,
+            "jumlah_eqp":     sync_jumlah_eqp,
+            "critical_utl":   sync_critical_utl,
+            "critical_prim":  sync_critical_prim,
+            "mon_operasi":    sync_mon_operasi,
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -497,7 +513,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -506,7 +522,15 @@ def table_stats(db: Session = Depends(get_db)):
         "metering": "metering_monitoring",
         "badactor": "bad_actor_monitoring",
         "icu":      "icu_monitoring",
-        "prokja_atg": "program_kerja_atg",
+        "prokja_atg":  "program_kerja_atg",
+        "paf":         "paf",
+        "zero_clamp":  "zero_clamp",
+        "issue_paf":   "issue_paf",
+        "power_stream":"power_stream",
+        "jumlah_eqp":  "jumlah_eqp_utl",
+        "critical_utl":"critical_eqp_utl",
+        "critical_prim":"critical_eqp_prim_sec",
+        "mon_operasi": "monitoring_operasi",
     }
     return {
         k: {
@@ -591,3 +615,210 @@ async def ask_ai(question: str):
             "X-Accel-Buffering": "no",   # penting untuk nginx proxy
         }
     )
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSERS: 8 TABEL BARU
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _to_float(v):
+    try:
+        return float(v) if pd.notna(v) else None
+    except:
+        return None
+
+def _to_int(v):
+    try:
+        return int(v) if pd.notna(v) else None
+    except:
+        return None
+
+def _to_date_str(v):
+    try:
+        return str(v.date()) if pd.notna(v) and hasattr(v, 'date') else _safe(v)
+    except:
+        return _safe(v)
+
+def sync_paf(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(PAF).delete()
+    count = 0
+    for _, row in df.iterrows():
+        g = lambda c: _safe(row.get(c)) if pd.notna(row.get(c)) if row.get(c) is not None else False else ''
+        db.add(PAF(
+            month_update     = _safe(row.get('Month Update')),
+            type             = _safe(row.get('Type')),
+            ru               = _safe(row.get('RU')),
+            target_realisasi = _safe(row.get('Target/Realisasi')),
+            color            = _safe(row.get('Color')),
+            value            = _to_float(row.get('Value')),
+            plan_unplan      = _safe(row.get('Plan/Unplan')),
+            type2            = _safe(row.get('Type.1')),
+            month            = _to_date_str(row.get('Month')),
+            value2           = _to_float(row.get('Value.1')),
+            ru2              = _safe(row.get('RU ')),
+            target           = _to_float(row.get('Target')),
+            code_current     = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ PAF berhasil diupdate! ({count} records)"}
+
+def sync_zero_clamp(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(ZeroClamp).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(ZeroClamp(
+            no                        = _to_int(row.get('NO')),
+            ru                        = _safe(row.get('RU')),
+            area                      = _safe(row.get('AREA')),
+            unit                      = _safe(row.get('UNIT')),
+            tag_no_ln                 = _safe(row.get('TAG NO/LN')),
+            services                  = _safe(row.get('Services')),
+            description               = _safe(row.get('Description')),
+            type_damage               = _safe(row.get('TYPE DAMAGE')),
+            posisi                    = _safe(row.get('POSISI')),
+            type_perbaikan            = _safe(row.get('TYPE PERBAIKAN')),
+            tanggal_dipasang          = _to_date_str(row.get('TANGGAL DIPASANG')),
+            tanggal_dilepas           = _to_date_str(row.get('TANGGAL DILEPAS')),
+            tanggal_rencana_perbaikan = _to_date_str(row.get('TANGGAL RENCANA PERBAIKAN PERMANENT')),
+            no_irkap                  = _safe(row.get('NO IRKAP')),
+            status                    = _safe(row.get('STATUS')),
+            remarks                   = _safe(row.get('Remarks')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Zero Clamp berhasil diupdate! ({count} records)"}
+
+def sync_issue_paf(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(IssuePAF).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(IssuePAF(
+            type         = _safe(row.get('Type')),
+            ru           = _safe(row.get('RU')),
+            date         = _to_date_str(row.get('Date')),
+            issue        = _safe(row.get('Issue')),
+            month_update = _safe(row.get('Month Update')),
+            code_current = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Issue PAF berhasil diupdate! ({count} records)"}
+
+def sync_power_stream(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(PowerStream).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(PowerStream(
+            refinery_unit    = _safe(row.get('Refinert Unit')),
+            type_equipment   = _safe(row.get('Type Equipment')),
+            equipment        = _safe(row.get('Equipment')),
+            status_operation = _safe(row.get('Status Operation')),
+            status_n0        = _safe(row.get('Status N+0')),
+            unit_measurement = _safe(row.get('Unit Measurement')),
+            desain           = _to_float(row.get('Desain')),
+            kapasitas_max    = _to_float(row.get('Capasitas Max')),
+            average_actual   = _to_float(row.get('Average Actual')),
+            remark           = _safe(row.get('Remark')),
+            date_update      = _safe(row.get('Date Update')),
+            month_update     = _safe(row.get('Month Update')),
+            code_current     = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Power & Steam berhasil diupdate! ({count} records)"}
+
+def sync_jumlah_eqp(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(JumlahEqpUTL).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(JumlahEqpUTL(
+            refinery_unit    = _safe(row.get('Refinery Unit')),
+            type_equipment   = _safe(row.get('Type Equipment')),
+            status_equipment = _safe(row.get('Status Equipment')),
+            jumlah           = _to_int(row.get('Jumlah')),
+            month_update     = _safe(row.get('Month Update')),
+            code_current     = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Jumlah Equipment UTL berhasil diupdate! ({count} records)"}
+
+def sync_critical_utl(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(CriticalEqpUTL).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(CriticalEqpUTL(
+            refinery_unit      = _safe(row.get('Refinery Unit')),
+            type_equipment     = _safe(row.get('Type Equipment')),
+            highlight_issue    = _safe(row.get('Highlight Issue')),
+            corrective_action  = _safe(row.get('Corrective & Quick Win Action')),
+            target_corrective  = _safe(row.get('Target')),
+            traffic_corrective = _safe(row.get('Traffic')),
+            mitigasi_action    = _safe(row.get('Mitigasi & Leading Action Program')),
+            target_mitigasi    = _safe(row.get('Target.1')),
+            traffic_mitigasi   = _safe(row.get('Traffic.1')),
+            month_update       = _safe(row.get('Month Update')),
+            code_current       = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Critical Equipment UTL berhasil diupdate! ({count} records)"}
+
+def sync_critical_prim(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(CriticalEqpPrimSec).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(CriticalEqpPrimSec(
+            refinery_unit      = _safe(row.get('Refinery Unit')),
+            unit_proses        = _safe(row.get('Unit Proses')),
+            equipment          = _safe(row.get('Equipment')),
+            highlight_issue    = _safe(row.get('Highlight Issue')),
+            corrective_action  = _safe(row.get('Corrective & Quick Win Action')),
+            target_corrective  = _safe(row.get('Target')),
+            traffic_corrective = _safe(row.get('Traffic')),
+            mitigasi_action    = _safe(row.get('Mitigasi & Leading Action Program')),
+            target_mitigasi    = _safe(row.get('Target.1')),
+            traffic_mitigasi   = _safe(row.get('Traffic.1')),
+            month_update       = _safe(row.get('Month Update')),
+            code_current       = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Critical Equipment Prim & Sec berhasil diupdate! ({count} records)"}
+
+def sync_mon_operasi(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(MonitoringOperasi).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(MonitoringOperasi(
+            refinery_unit          = _safe(row.get('Refinery Unit')),
+            unit_proses            = _safe(row.get('Unit Proses')),
+            unit                   = _safe(row.get('Unit')),
+            unit_measurement       = _safe(row.get('Unit Measurement')),
+            design                 = _to_float(row.get('Design')),
+            minimal_capacity       = _to_float(row.get('Minimal Capacity')),
+            plant_readiness        = _to_float(row.get('Plant Readiness')),
+            remark                 = _safe(row.get('Remark')),
+            type_limitasi_process  = _safe(row.get('Type Limitasi_Process')),
+            equipment_process      = _safe(row.get('Equipment_Process')),
+            limitasi_alert_process = _safe(row.get('Limitasi/Alert_Process')),
+            mitigasi_process       = _safe(row.get('Mitigasi_Process')),
+            target_sts             = _to_float(row.get('Target/STS')),
+            actual                 = _to_float(row.get('Actual')),
+            type_limitasi_sts      = _safe(row.get('Type Limitasi_STS')),
+            equipment_sts          = _safe(row.get('Equipment_STS')),
+            limitasi_alert_sts     = _safe(row.get('Limitasi/Alert STS')),
+            mitigasi_sts           = _safe(row.get('Mitigasi_STS')),
+            month_update           = _safe(row.get('Month Update')),
+            code_current           = _to_int(row.get('Code Current')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Monitoring Operasi berhasil diupdate! ({count} records)"}
