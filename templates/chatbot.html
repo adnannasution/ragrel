@@ -3,29 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Maintenance Budget AI | Dinoiki</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Maintenance AI | Dinoiki</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .chat-area { height: calc(100vh - 220px); }
-        .ai-bubble { border-radius: 0 15px 15px 15px; }
-        .user-bubble { border-radius: 15px 15px 0 15px; }
-        .ai-msg table { width:100%; border-collapse:collapse; margin:15px 0; font-size:0.85rem; background-color:white; border-radius:8px; overflow:hidden; border:1px solid #e2e8f0; }
-        .ai-msg th { background-color:#4f46e5; color:white; padding:10px; text-align:left; font-weight:bold; }
-        .ai-msg td { padding:8px 10px; border-bottom:1px solid #f1f5f9; color:#334155; }
-        .ai-msg tr:hover { background-color:#f8fafc; }
-        .ai-msg i { color:#64748b; font-size:0.85rem; display:block; margin-top:8px; border-top:1px dotted #e2e8f0; padding-top:4px; }
+        .chat-area { height: calc(100vh - 200px); }
+        .ai-bubble  { border-radius: 0 15px 15px 15px; }
+        .user-bubble{ border-radius: 15px 15px 0 15px; }
+        .ai-msg table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.82rem; border:1px solid #e2e8f0; }
+        .ai-msg th { background:#4f46e5; color:#fff; padding:9px 10px; text-align:left; }
+        .ai-msg td { padding:7px 10px; border-bottom:1px solid #f1f5f9; color:#334155; }
+        .ai-msg tr:hover td { background:#f8fafc; }
+        .ai-msg i  { color:#64748b; font-size:0.82rem; display:block; margin-top:8px; border-top:1px dotted #e2e8f0; padding-top:4px; }
+        .card-option { transition: all .15s; }
+        .card-option:hover { transform: translateY(-2px); }
+        .card-option.selected { box-shadow: 0 0 0 3px #6366f1; }
     </style>
 </head>
-<body class="bg-slate-100 font-sans h-screen flex flex-col">
+<body class="bg-gray-100 font-sans h-screen flex flex-col">
 
-    <header class="bg-indigo-900 text-white p-4 shadow-md flex justify-between items-center px-8">
+    <!-- Header -->
+    <header class="bg-indigo-900 text-white px-8 py-4 shadow-md flex justify-between items-center">
         <div class="flex items-center gap-3">
             <i class="fas fa-robot text-2xl text-indigo-300"></i>
             <div>
-                <h1 class="font-bold text-lg">Maintenance Budget AI</h1>
-                <p class="text-xs text-indigo-300">Rekap Anggaran 2018–2025 | Powered by GPT-4o Dinoiki</p>
+                <h1 class="font-bold text-lg leading-tight">Maintenance AI Assistant</h1>
+                <p class="text-xs text-indigo-300">Anggaran · Pipeline · Rotor · ATG · Metering &nbsp;|&nbsp; GPT-4o Dinoiki</p>
             </div>
         </div>
         <button onclick="toggleModal()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition">
@@ -33,41 +37,86 @@
         </button>
     </header>
 
+    <!-- Chat -->
     <main id="chatbox" class="flex-1 overflow-y-auto p-6 space-y-4 chat-area">
         <div class="flex items-start gap-3">
-            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center">
+            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-robot"></i>
             </div>
-            <div class="bg-white p-4 shadow-sm ai-bubble text-slate-700 max-w-2xl border">
-                Halo! Saya siap membantu menganalisis <b>Rekap Anggaran Maintenance Kilang 2018–2025</b>.<br><br>
-                Contoh pertanyaan yang bisa Anda ajukan:<br>
-                • <i>Berapa total AKTUAL anggaran All RUs tahun 2024?</i><br>
-                • <i>Bandingkan RKAP vs AKTUAL OVERHAUL RU IV tahun 2022-2024</i><br>
-                • <i>Tampilkan grafik tren anggaran TOTAL All RUs dari 2018 sampai 2025</i>
+            <div class="bg-white p-4 shadow-sm ai-bubble text-gray-700 max-w-2xl border text-sm leading-relaxed">
+                Halo! Saya siap menganalisis data maintenance kilang. Sumber data yang tersedia:<br><br>
+                💰 <b>Anggaran Maintenance</b> — RKAP, PLAN, AKTUAL per RU 2018–2025<br>
+                🔧 <b>Pipeline Inspection</b> — Inspeksi pipa, ketebalan, sisa umur<br>
+                ⚙️ <b>Rotor Monitoring</b> — Status spare rotor & workplan<br>
+                🛢️ <b>ATG Monitoring</b> — Status Automatic Tank Gauge & sertifikasi<br>
+                📏 <b>Metering Monitoring</b> — Status metering & sertifikasi<br><br>
+                Silakan ajukan pertanyaan, termasuk yang <b>lintas tabel</b>.
             </div>
         </div>
     </main>
 
-    <footer class="p-6 bg-white border-t shadow-inner">
+    <!-- Input -->
+    <footer class="p-4 bg-white border-t shadow-inner">
         <div class="max-w-4xl mx-auto flex gap-3">
-            <input type="text" id="userInput" placeholder="Tanya tentang anggaran RKAP, AKTUAL, per RU, per tahun, atau per kategori..."
-                class="flex-1 p-4 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                onkeypress="if(event.key === 'Enter') sendQuestion()">
-            <button onclick="sendQuestion()" class="bg-indigo-600 text-white px-6 rounded-2xl hover:bg-indigo-700 transition shadow-md">
+            <input type="text" id="userInput"
+                placeholder="Contoh: ATG mana yang sertifikasinya sudah expired atau hampir expired?"
+                class="flex-1 p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm text-sm"
+                onkeypress="if(event.key==='Enter') sendQuestion()">
+            <button onclick="sendQuestion()" class="bg-indigo-600 text-white px-5 rounded-2xl hover:bg-indigo-700 transition shadow">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
     </footer>
 
-    <div id="uploadModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-slate-800">Upload Data Excel</h3>
-                <button onclick="toggleModal()" class="text-slate-400 text-xl">&times;</button>
+    <!-- Modal Upload -->
+    <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="font-bold text-gray-800 text-base">Update Data</h3>
+                <button onclick="toggleModal()" class="text-gray-400 text-2xl leading-none hover:text-gray-600">&times;</button>
             </div>
-            <p class="text-xs text-slate-500 mb-3">Format: <b>Rekap_Anggaran_Maintenance.xlsx</b> dengan sheet <b>RU's</b></p>
-            <input type="file" id="excelFile" accept=".xlsx,.xls" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-6" />
-            <button onclick="processUpload()" id="syncBtn" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition">
+
+            <p class="text-xs text-gray-500 mb-3 font-medium">Pilih jenis data yang akan diupload:</p>
+
+            <!-- Pilihan kartu -->
+            <div class="grid grid-cols-3 gap-2 mb-4">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
+                    onclick="selectType('anggaran', this)">
+                    <div class="text-2xl mb-1">💰</div>
+                    <div class="text-xs font-semibold text-gray-700">Anggaran</div>
+                    <div class="text-xs text-gray-400 mt-0.5">Sheet: RU's</div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
+                    onclick="selectType('pipeline', this)">
+                    <div class="text-2xl mb-1">🔧</div>
+                    <div class="text-xs font-semibold text-gray-700">Pipeline</div>
+                    <div class="text-xs text-gray-400 mt-0.5">pipeline_rag.xlsx</div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
+                    onclick="selectType('rotor', this)">
+                    <div class="text-2xl mb-1">⚙️</div>
+                    <div class="text-xs font-semibold text-gray-700">Rotor</div>
+                    <div class="text-xs text-gray-400 mt-0.5">rotor_rag.xlsx</div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
+                    onclick="selectType('atg', this)">
+                    <div class="text-2xl mb-1">🛢️</div>
+                    <div class="text-xs font-semibold text-gray-700">ATG</div>
+                    <div class="text-xs text-gray-400 mt-0.5">ATG_rag.xlsx</div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
+                    onclick="selectType('metering', this)">
+                    <div class="text-2xl mb-1">📏</div>
+                    <div class="text-xs font-semibold text-gray-700">Metering</div>
+                    <div class="text-xs text-gray-400 mt-0.5">metering_rag.xlsx</div>
+                </div>
+            </div>
+
+            <input type="file" id="excelFile" accept=".xlsx,.xls"
+                class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-4" />
+
+            <button onclick="processUpload()" id="syncBtn"
+                class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition text-sm">
                 Mulai Sinkronisasi
             </button>
         </div>
@@ -75,7 +124,21 @@
 
     <script>
     const chatbox = document.getElementById('chatbox');
-    function toggleModal() { document.getElementById('uploadModal').classList.toggle('hidden'); }
+    let selectedDataType = '';
+
+    function selectType(type, el) {
+        selectedDataType = type;
+        document.querySelectorAll('.card-option').forEach(e => {
+            e.classList.remove('selected', 'border-indigo-500', 'bg-indigo-50');
+            e.classList.add('border-gray-200', 'bg-white');
+        });
+        el.classList.add('selected', 'border-indigo-500', 'bg-indigo-50');
+        el.classList.remove('border-gray-200', 'bg-white');
+    }
+
+    function toggleModal() {
+        document.getElementById('uploadModal').classList.toggle('hidden');
+    }
 
     function appendMessage(role, text) {
         const isAI = role === 'ai';
@@ -84,37 +147,33 @@
 
         let finalContent = text;
         let chartData = null;
-
         if (isAI && text.includes('[CHART]')) {
             const parts = text.split('[CHART]');
             finalContent = parts[0];
-            try {
-                const jsonString = parts[1].split('[/CHART]')[0].trim();
-                chartData = JSON.parse(jsonString);
-            } catch (e) { console.error("Gagal membaca data grafik:", e); }
+            try { chartData = JSON.parse(parts[1].split('[/CHART]')[0].trim()); }
+            catch(e) { console.error('Chart parse error:', e); }
         }
 
         msgDiv.innerHTML = `
-            ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0"><i class="fas fa-robot"></i></div>' : ''}
-            <div class="${isAI ? 'ai-msg bg-white border text-slate-700 ai-bubble' : 'user-msg bg-indigo-600 text-white user-bubble'} p-4 shadow-sm max-w-[80%]">
+            ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-robot"></i></div>' : ''}
+            <div class="${isAI ? 'ai-msg bg-white border text-gray-700 ai-bubble' : 'bg-indigo-600 text-white user-bubble'} p-4 shadow-sm text-sm leading-relaxed" style="max-width:80%">
                 <div>${finalContent}</div>
-                ${chartData ? `<div class="mt-4 p-2 bg-slate-50 rounded-lg border border-dashed border-slate-200"><canvas id="chart-${Date.now()}" style="max-height:300px;"></canvas></div>` : ''}
+                ${chartData ? `<div class="mt-4 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200"><canvas id="chart-${Date.now()}" style="max-height:280px"></canvas></div>` : ''}
             </div>
-            ${!isAI ? '<div class="bg-slate-200 text-slate-600 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0"><i class="fas fa-user"></i></div>' : ''}
+            ${!isAI ? '<div class="bg-gray-200 text-gray-600 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-user"></i></div>' : ''}
         `;
         chatbox.appendChild(msgDiv);
 
         if (chartData) {
-            const canvas = msgDiv.querySelector('canvas');
-            new Chart(canvas, {
+            new Chart(msgDiv.querySelector('canvas'), {
                 type: chartData.type || 'bar',
                 data: {
                     labels: chartData.labels,
                     datasets: [{
-                        label: chartData.dataset_label || 'Anggaran (USD)',
+                        label: chartData.dataset_label || 'Data',
                         data: chartData.data,
-                        backgroundColor: 'rgba(79, 70, 229, 0.6)',
-                        borderColor: 'rgb(79, 70, 229)',
+                        backgroundColor: 'rgba(79,70,229,0.6)',
+                        borderColor: 'rgb(79,70,229)',
                         borderWidth: 1
                     }]
                 },
@@ -128,19 +187,18 @@
         const input = document.getElementById('userInput');
         const text = input.value.trim();
         if (!text) return;
-
         appendMessage('user', text);
         input.value = '';
 
         const loadingId = 'loading-' + Date.now();
-        const loadingDiv = document.createElement('div');
-        loadingDiv.id = loadingId;
-        loadingDiv.className = 'flex items-start gap-3 mb-4';
-        loadingDiv.innerHTML = `
-            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0"><i class="fas fa-robot"></i></div>
-            <div class="ai-msg bg-white p-4 shadow-sm border ai-bubble italic text-slate-400">Sedang menganalisis data anggaran...</div>
+        const div = document.createElement('div');
+        div.id = loadingId;
+        div.className = 'flex items-start gap-3 mb-4';
+        div.innerHTML = `
+            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-robot"></i></div>
+            <div class="ai-msg bg-white p-4 shadow-sm border ai-bubble italic text-gray-400 text-sm">Sedang menganalisis data...</div>
         `;
-        chatbox.appendChild(loadingDiv);
+        chatbox.appendChild(div);
         chatbox.scrollTop = chatbox.scrollHeight;
 
         try {
@@ -148,27 +206,34 @@
             const data = await res.json();
             document.getElementById(loadingId).remove();
             appendMessage('ai', data.answer || data.error);
-        } catch (e) {
+        } catch(e) {
             document.getElementById(loadingId).remove();
             appendMessage('ai', "<span class='text-red-500'>Gagal menghubungi server.</span>");
         }
     }
 
     async function processUpload() {
+        if (!selectedDataType) return alert('Pilih jenis data terlebih dahulu!');
         const fileInput = document.getElementById('excelFile');
-        if (fileInput.files.length === 0) return alert("Pilih file terlebih dahulu!");
+        if (fileInput.files.length === 0) return alert('Pilih file Excel terlebih dahulu!');
+
         const btn = document.getElementById('syncBtn');
-        btn.innerText = "Proses..."; btn.disabled = true;
+        btn.innerText = 'Proses...';
+        btn.disabled = true;
+
         const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
+        formData.append('file', fileInput.files[0]);
+        formData.append('data_type', selectedDataType);
+
         try {
             const res = await fetch('/upload-sync', { method: 'POST', body: formData });
             const data = await res.json();
             alert(data.message || data.error);
-        } catch (e) {
-            alert("Terjadi kesalahan saat upload.");
+        } catch(e) {
+            alert('Terjadi kesalahan saat upload.');
         } finally {
-            btn.innerText = "Mulai Sinkronisasi"; btn.disabled = false;
+            btn.innerText = 'Mulai Sinkronisasi';
+            btn.disabled = false;
             toggleModal();
         }
     }
