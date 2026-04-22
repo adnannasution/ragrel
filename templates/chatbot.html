@@ -89,7 +89,8 @@
                 🏭 <b>Jumlah Eqp UTL</b> — Jumlah equipment utility per status<br>
                 🚧 <b>Critical Eqp UTL</b> — Critical equipment utility & mitigasi<br>
                 🔴 <b>Critical Prim/Sec</b> — Critical equipment primary & secondary<br>
-                📊 <b>Monitoring Operasi</b> — Kapasitas & aktual operasi unit proses<br><br>
+                📊 <b>Monitoring Operasi</b> — Kapasitas & aktual operasi unit proses<br>
+                🗂️ <b>Inspection Plan</b> — Rencana & realisasi inspeksi equipment<br><br>
                 Silakan ajukan pertanyaan, termasuk yang <b>lintas tabel</b>.
             </div>
         </div>
@@ -109,7 +110,151 @@
 
     <!-- Modal Upload -->
     <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+        <div class="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-2xl" style="max-height:90vh">
+            <!-- Header -->
+            <div class="flex justify-between items-center px-6 py-4 border-b flex-shrink-0">
+                <div>
+                    <h3 class="font-bold text-gray-800 text-base">Update Data</h3>
+                    <p class="text-xs text-gray-400 mt-0.5">Pilih jenis data yang akan diupload</p>
+                </div>
+                <button onclick="toggleModal()" class="text-gray-400 text-2xl leading-none hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition">&times;</button>
+            </div>
+
+            <!-- Scrollable body -->
+            <div class="overflow-y-auto flex-1 px-6 py-4">
+                <div class="grid grid-cols-4 gap-2 mb-4">
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="anggaran" onclick="selectType('anggaran', this)">
+                        <div class="text-xl mb-1">💰</div>
+                        <div class="text-xs font-semibold text-gray-700">Anggaran</div>
+                        <div class="stat-rows" id="stat-rows-anggaran"></div>
+                        <div class="stat-upd"  id="stat-upd-anggaran"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="pipeline" onclick="selectType('pipeline', this)">
+                        <div class="text-xl mb-1">🔧</div>
+                        <div class="text-xs font-semibold text-gray-700">Pipeline</div>
+                        <div class="stat-rows" id="stat-rows-pipeline"></div>
+                        <div class="stat-upd"  id="stat-upd-pipeline"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="rotor" onclick="selectType('rotor', this)">
+                        <div class="text-xl mb-1">⚙️</div>
+                        <div class="text-xs font-semibold text-gray-700">Rotor</div>
+                        <div class="stat-rows" id="stat-rows-rotor"></div>
+                        <div class="stat-upd"  id="stat-upd-rotor"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="atg" onclick="selectType('atg', this)">
+                        <div class="text-xl mb-1">🛢️</div>
+                        <div class="text-xs font-semibold text-gray-700">ATG</div>
+                        <div class="stat-rows" id="stat-rows-atg"></div>
+                        <div class="stat-upd"  id="stat-upd-atg"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="metering" onclick="selectType('metering', this)">
+                        <div class="text-xl mb-1">📏</div>
+                        <div class="text-xs font-semibold text-gray-700">Metering</div>
+                        <div class="stat-rows" id="stat-rows-metering"></div>
+                        <div class="stat-upd"  id="stat-upd-metering"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="badactor" onclick="selectType('badactor', this)">
+                        <div class="text-xl mb-1">🚨</div>
+                        <div class="text-xs font-semibold text-gray-700">Bad Actor</div>
+                        <div class="stat-rows" id="stat-rows-badactor"></div>
+                        <div class="stat-upd"  id="stat-upd-badactor"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="icu" onclick="selectType('icu', this)">
+                        <div class="text-xl mb-1">🔴</div>
+                        <div class="text-xs font-semibold text-gray-700">ICU</div>
+                        <div class="stat-rows" id="stat-rows-icu"></div>
+                        <div class="stat-upd"  id="stat-upd-icu"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="prokja_atg" onclick="selectType('prokja_atg', this)">
+                        <div class="text-xl mb-1">📋</div>
+                        <div class="text-xs font-semibold text-gray-700">Prokja ATG</div>
+                        <div class="stat-rows" id="stat-rows-prokja_atg"></div>
+                        <div class="stat-upd"  id="stat-upd-prokja_atg"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="paf" onclick="selectType('paf', this)">
+                        <div class="text-xl mb-1">📈</div>
+                        <div class="text-xs font-semibold text-gray-700">PAF</div>
+                        <div class="stat-rows" id="stat-rows-paf"></div>
+                        <div class="stat-upd"  id="stat-upd-paf"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="zero_clamp" onclick="selectType('zero_clamp', this)">
+                        <div class="text-xl mb-1">🔩</div>
+                        <div class="text-xs font-semibold text-gray-700">Zero Clamp</div>
+                        <div class="stat-rows" id="stat-rows-zero_clamp"></div>
+                        <div class="stat-upd"  id="stat-upd-zero_clamp"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="issue_paf" onclick="selectType('issue_paf', this)">
+                        <div class="text-xl mb-1">⚠️</div>
+                        <div class="text-xs font-semibold text-gray-700">Issue PAF</div>
+                        <div class="stat-rows" id="stat-rows-issue_paf"></div>
+                        <div class="stat-upd"  id="stat-upd-issue_paf"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="power_stream" onclick="selectType('power_stream', this)">
+                        <div class="text-xl mb-1">⚡</div>
+                        <div class="text-xs font-semibold text-gray-700">Power & Steam</div>
+                        <div class="stat-rows" id="stat-rows-power_stream"></div>
+                        <div class="stat-upd"  id="stat-upd-power_stream"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="jumlah_eqp" onclick="selectType('jumlah_eqp', this)">
+                        <div class="text-xl mb-1">🏭</div>
+                        <div class="text-xs font-semibold text-gray-700">Jumlah Eqp UTL</div>
+                        <div class="stat-rows" id="stat-rows-jumlah_eqp"></div>
+                        <div class="stat-upd"  id="stat-upd-jumlah_eqp"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="critical_utl" onclick="selectType('critical_utl', this)">
+                        <div class="text-xl mb-1">🚧</div>
+                        <div class="text-xs font-semibold text-gray-700">Critical Eqp UTL</div>
+                        <div class="stat-rows" id="stat-rows-critical_utl"></div>
+                        <div class="stat-upd"  id="stat-upd-critical_utl"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="critical_prim" onclick="selectType('critical_prim', this)">
+                        <div class="text-xl mb-1">🔴</div>
+                        <div class="text-xs font-semibold text-gray-700">Critical Prim/Sec</div>
+                        <div class="stat-rows" id="stat-rows-critical_prim"></div>
+                        <div class="stat-upd"  id="stat-upd-critical_prim"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="mon_operasi" onclick="selectType('mon_operasi', this)">
+                        <div class="text-xl mb-1">📊</div>
+                        <div class="text-xs font-semibold text-gray-700">Monitoring Operasi</div>
+                        <div class="stat-rows" id="stat-rows-mon_operasi"></div>
+                        <div class="stat-upd"  id="stat-upd-mon_operasi"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="inspection_plan" onclick="selectType('inspection_plan', this)">
+                        <div class="text-xl mb-1">🗂️</div>
+                        <div class="text-xs font-semibold text-gray-700">Inspection Plan</div>
+                        <div class="stat-rows" id="stat-rows-inspection_plan"></div>
+                        <div class="stat-upd"  id="stat-upd-inspection_plan"></div>
+                    </div>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="uploadProgress" class="hidden mb-3">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-semibold text-indigo-600" id="uploadProgressLabel">Memproses...</span>
+                        <span class="text-xs text-gray-400" id="uploadProgressPct">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                        <div id="uploadProgressBar" class="progress-bar-inner bg-indigo-500 h-2.5 rounded-full progress-pulsing" style="width:0%"></div>
+                    </div>
+                    <div class="flex items-center gap-1.5 mt-2">
+                        <div class="spinner" style="width:10px;height:10px;border-width:1.5px"></div>
+                        <span class="text-xs text-gray-400" id="uploadProgressStep">Mengunggah file...</span>
+                    </div>
+                </div>
+
+                <input type="file" id="excelFile" accept=".xlsx,.xls"
+                    class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t flex-shrink-0">
+                <button onclick="processUpload()" id="syncBtn"
+                    class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition text-sm">
+                    Mulai Sinkronisasi
+                </button>
+            </div>
+        </div>
+    </div>
             <div class="flex justify-between items-center mb-5">
                 <h3 class="font-bold text-gray-800 text-base">Update Data</h3>
                 <button onclick="toggleModal()" class="text-gray-400 text-2xl leading-none hover:text-gray-600">&times;</button>
@@ -233,30 +378,7 @@
                 </div>
             </div>
 
-            <input type="file" id="excelFile" accept=".xlsx,.xls"
-                class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-4" />
 
-            <!-- Upload Progress -->
-            <div id="uploadProgress" class="hidden mb-4">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-xs font-semibold text-indigo-600" id="uploadProgressLabel">Memproses...</span>
-                    <span class="text-xs text-gray-400" id="uploadProgressPct">0%</span>
-                </div>
-                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                    <div id="uploadProgressBar" class="progress-bar-inner bg-indigo-500 h-2.5 rounded-full progress-pulsing" style="width:0%"></div>
-                </div>
-                <div class="flex items-center gap-1.5 mt-2">
-                    <div class="spinner" style="width:10px;height:10px;border-width:1.5px"></div>
-                    <span class="text-xs text-gray-400" id="uploadProgressStep">Mengunggah file...</span>
-                </div>
-            </div>
-
-            <button onclick="processUpload()" id="syncBtn"
-                class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition text-sm">
-                Mulai Sinkronisasi
-            </button>
-        </div>
-    </div>
 
     <script>
     const chatbox = document.getElementById('chatbox');

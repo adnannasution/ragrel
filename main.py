@@ -8,7 +8,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -76,6 +76,7 @@ ATURAN QUERY SQL:
 - Untuk critical_eqp_utl: critical equipment utility — kolom refinery_unit, type_equipment, highlight_issue, corrective_action, mitigasi_action, target_corrective.
 - Untuk critical_eqp_prim_sec: critical equipment primary & secondary — kolom refinery_unit, unit_proses, equipment, highlight_issue, corrective_action, mitigasi_action.
 - Untuk monitoring_operasi: monitoring kapasitas operasi unit proses — kolom refinery_unit, unit_proses, unit, design, minimal_capacity, plant_readiness, actual, target_sts.
+- Untuk inspection_plan: rencana & realisasi inspeksi equipment — kolom refinery_unit, area, tag_no_ln, type_equipment, type_inspection, due_date, plan_date, actual_date, result_remaining_life, grand_result.
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -146,6 +147,7 @@ async def upload_sync(
             "critical_utl":   sync_critical_utl,
             "critical_prim":  sync_critical_prim,
             "mon_operasi":    sync_mon_operasi,
+            "inspection_plan": sync_inspection_plan,
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -513,7 +515,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -531,6 +533,7 @@ def table_stats(db: Session = Depends(get_db)):
         "critical_utl":"critical_eqp_utl",
         "critical_prim":"critical_eqp_prim_sec",
         "mon_operasi": "monitoring_operasi",
+        "inspection_plan": "inspection_plan",
     }
     return {
         k: {
@@ -822,3 +825,33 @@ def sync_mon_operasi(file_location: str, db: Session):
         count += 1
     db.commit()
     return {"message": f"✅ Monitoring Operasi berhasil diupdate! ({count} records)"}
+
+def sync_inspection_plan(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+    db.query(InspectionPlan).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(InspectionPlan(
+            refinery_unit         = _safe(row.get('Refinery Unit')),
+            area                  = _safe(row.get('Area')),
+            unit                  = _safe(row.get('Unit')),
+            tag_no_ln             = _safe(row.get('Tag No/LN')),
+            type_equipment        = _safe(row.get('Type Equipment')),
+            type_inspection       = _safe(row.get('Type Inspection')),
+            type_pekerjaan        = _safe(row.get('Type Pekerjaan')),
+            due_date              = _to_date_str(row.get('Due Date')),
+            due_year              = _to_int(row.get('Due Year')),
+            plan_date             = _to_date_str(row.get('Plan Date')),
+            plan_year             = _to_int(row.get('Plan Year')),
+            actual_date           = _to_date_str(row.get('Actual Date')),
+            actual_year           = _to_int(row.get('Actual Year')),
+            update_date           = _to_date_str(row.get('Update Date')),
+            result_remaining_life = _to_float(row.get('Result Remaining Life')),
+            result_visual         = _safe(row.get('Result Visual')),
+            visual_lainnya        = _safe(row.get('Visual Lainnya')),
+            result_lainnya        = _safe(row.get('Result Lainnya')),
+            grand_result          = _safe(row.get('Grand Result')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Inspection Plan berhasil diupdate! ({count} records)"}

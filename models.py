@@ -283,3 +283,27 @@ class MonitoringOperasi(Base):
     mitigasi_sts           = Column(Text)
     month_update           = Column(Text)
     code_current           = Column(Integer)
+
+# ─── 16. INSPECTION PLAN ─────────────────────────────────────────────────────
+class InspectionPlan(Base):
+    __tablename__ = "inspection_plan"
+    id                    = Column(Integer, primary_key=True, index=True)
+    refinery_unit         = Column(Text)
+    area                  = Column(Text)
+    unit                  = Column(Text)
+    tag_no_ln             = Column(Text)
+    type_equipment        = Column(Text)
+    type_inspection       = Column(Text)
+    type_pekerjaan        = Column(Text)
+    due_date              = Column(Text)
+    due_year              = Column(Integer)
+    plan_date             = Column(Text)
+    plan_year             = Column(Integer)
+    actual_date           = Column(Text)
+    actual_year           = Column(Integer)
+    update_date           = Column(Text)
+    result_remaining_life = Column(Float)
+    result_visual         = Column(Text)
+    visual_lainnya        = Column(Text)
+    result_lainnya        = Column(Text)
+    grand_result          = Column(Text)
