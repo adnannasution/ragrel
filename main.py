@@ -354,44 +354,88 @@ def _safe(val) -> str:
     return str(val).strip()
 
 def sync_icu(file_location: str, db: Session):
-    # Baris 0 = header, data mulai baris 1
+    # Baca dengan header=0, lalu rename kolom duplikat ke nama aslinya (hapus suffix _0, _1, dst)
     df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
+
+    # Normalisasi nama kolom — hapus suffix duplikat pandas (_0, _1, .1, .2, dst)
+    import re
+    clean_cols = []
+    for col in df.columns:
+        cleaned = re.sub(r'(\.\d+|_\d+)$', '', str(col)).strip()
+        clean_cols.append(cleaned)
+    df.columns = clean_cols
+
+    # Mapping fleksibel: cari kolom by substring jika nama exact tidak ditemukan
+    def find_col(df, *candidates):
+        """Cari nama kolom yang cocok, fallback ke partial match."""
+        for c in candidates:
+            if c in df.columns:
+                return c
+            # partial match case-insensitive
+            matches = [col for col in df.columns if c.lower() in col.lower()]
+            if matches:
+                return matches[0]
+        return None
+
+    COL_MAP = {
+        'report_date':         find_col(df, 'Report Date'),
+        'ru':                  find_col(df, 'RU'),
+        'icu_status':          find_col(df, 'ICU Status'),
+        'tag_no':              find_col(df, 'Tag No'),
+        'issue':               find_col(df, 'Issue'),
+        'mitigation':          find_col(df, 'Mitigation/Temporary Solution', 'Mitigation'),
+        'mitigasi_category':   find_col(df, 'Mitigasi Category', 'Mitigation Category'),
+        'mitigation_external': find_col(df, 'Mitigation Need External Resource'),
+        'irkap_mitigation':    find_col(df, 'IRKAP Mitigation'),
+        'remark_mitigation':   find_col(df, 'Remark Mitigation'),
+        'permanent_solution':  find_col(df, 'Permanent Solution'),
+        'solution_category':   find_col(df, 'Solution Category'),
+        'solution_external':   find_col(df, 'Solution Need External Resource'),
+        'irkap_solution':      find_col(df, 'IRKAP Solution'),
+        'remark_solution':     find_col(df, 'Remark Solution'),
+        'progress':            find_col(df, 'Progres', 'Progress'),
+        'info':                find_col(df, 'Info'),
+        'target_closed':       find_col(df, 'Target Closed'),
+    }
+
     db.query(ICUMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
-        def g(col):
+        def g(field):
+            col = COL_MAP.get(field)
+            if not col:
+                return ''
             v = row.get(col)
             try:
                 return _safe(v) if pd.notna(v) else ''
             except Exception:
                 return _safe(v)
 
-        # report_date: bisa datetime atau string
-        rd = row.get('Report Date')
-        if pd.notna(rd) and hasattr(rd, 'date'):
-            report_date = str(rd.date())
-        else:
+        rd = row.get(COL_MAP.get('report_date', ''), None)
+        try:
+            report_date = str(rd.date()) if pd.notna(rd) and hasattr(rd, 'date') else _safe(rd)
+        except Exception:
             report_date = _safe(rd)
 
         db.add(ICUMonitoring(
-            report_date        = report_date,
-            ru                 = g('RU'),
-            icu_status         = g('ICU Status'),
-            tag_no             = g('Tag No'),
-            issue              = g('Issue'),
-            mitigation         = g('Mitigation/Temporary Solution'),
-            mitigasi_category  = g('Mitigasi Category'),
-            mitigation_external= g('Mitigation Need External Resource?'),
-            irkap_mitigation   = g('IRKAP Mitigation'),
-            remark_mitigation  = g('Remark Mitigation'),
-            permanent_solution = g('Permanent Solution'),
-            solution_category  = g('Solution Category'),
-            solution_external  = g('Solution Need External Resource?'),
-            irkap_solution     = g('IRKAP Solution'),
-            remark_solution    = g('Remark Solution'),
-            progress           = g('Progres'),
-            info               = g('Info'),
-            target_closed      = g('Target Closed'),
+            report_date         = report_date,
+            ru                  = g('ru'),
+            icu_status          = g('icu_status'),
+            tag_no              = g('tag_no'),
+            issue               = g('issue'),
+            mitigation          = g('mitigation'),
+            mitigasi_category   = g('mitigasi_category'),
+            mitigation_external = g('mitigation_external'),
+            irkap_mitigation    = g('irkap_mitigation'),
+            remark_mitigation   = g('remark_mitigation'),
+            permanent_solution  = g('permanent_solution'),
+            solution_category   = g('solution_category'),
+            solution_external   = g('solution_external'),
+            irkap_solution      = g('irkap_solution'),
+            remark_solution     = g('remark_solution'),
+            progress            = g('progress'),
+            info                = g('info'),
+            target_closed       = g('target_closed'),
         ))
         count += 1
     db.commit()
