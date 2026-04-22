@@ -111,6 +111,7 @@
     <!-- Modal Upload -->
     <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-2xl" style="max-height:90vh">
+
             <!-- Header -->
             <div class="flex justify-between items-center px-6 py-4 border-b flex-shrink-0">
                 <div>
@@ -255,130 +256,6 @@
             </div>
         </div>
     </div>
-            <div class="flex justify-between items-center mb-5">
-                <h3 class="font-bold text-gray-800 text-base">Update Data</h3>
-                <button onclick="toggleModal()" class="text-gray-400 text-2xl leading-none hover:text-gray-600">&times;</button>
-            </div>
-
-            <p class="text-xs text-gray-500 mb-3 font-medium">Pilih jenis data yang akan diupload:</p>
-
-            <!-- Pilihan kartu -->
-            <div class="grid grid-cols-3 gap-2 mb-4">
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="anggaran" onclick="selectType('anggaran', this)">
-                    <div class="text-2xl mb-1">💰</div>
-                    <div class="text-xs font-semibold text-gray-700">Anggaran</div>
-                    <div class="text-xs text-gray-400">Sheet: RU's</div>
-                    <div class="stat-rows" id="stat-rows-anggaran"></div>
-                    <div class="stat-upd"  id="stat-upd-anggaran"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="pipeline" onclick="selectType('pipeline', this)">
-                    <div class="text-2xl mb-1">🔧</div>
-                    <div class="text-xs font-semibold text-gray-700">Pipeline</div>
-                    <div class="text-xs text-gray-400">pipeline_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-pipeline"></div>
-                    <div class="stat-upd"  id="stat-upd-pipeline"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="rotor" onclick="selectType('rotor', this)">
-                    <div class="text-2xl mb-1">⚙️</div>
-                    <div class="text-xs font-semibold text-gray-700">Rotor</div>
-                    <div class="text-xs text-gray-400">rotor_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-rotor"></div>
-                    <div class="stat-upd"  id="stat-upd-rotor"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="atg" onclick="selectType('atg', this)">
-                    <div class="text-2xl mb-1">🛢️</div>
-                    <div class="text-xs font-semibold text-gray-700">ATG</div>
-                    <div class="text-xs text-gray-400">ATG_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-atg"></div>
-                    <div class="stat-upd"  id="stat-upd-atg"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="metering" onclick="selectType('metering', this)">
-                    <div class="text-2xl mb-1">📏</div>
-                    <div class="text-xs font-semibold text-gray-700">Metering</div>
-                    <div class="text-xs text-gray-400">metering_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-metering"></div>
-                    <div class="stat-upd"  id="stat-upd-metering"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="badactor" onclick="selectType('badactor', this)">
-                    <div class="text-2xl mb-1">🚨</div>
-                    <div class="text-xs font-semibold text-gray-700">Bad Actor</div>
-                    <div class="text-xs text-gray-400">badactor_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-badactor"></div>
-                    <div class="stat-upd"  id="stat-upd-badactor"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="icu" onclick="selectType('icu', this)">
-                    <div class="text-2xl mb-1">🔴</div>
-                    <div class="text-xs font-semibold text-gray-700">ICU</div>
-                    <div class="text-xs text-gray-400">icu_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-icu"></div>
-                    <div class="stat-upd"  id="stat-upd-icu"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="prokja_atg" onclick="selectType('prokja_atg', this)">
-                    <div class="text-2xl mb-1">📋</div>
-                    <div class="text-xs font-semibold text-gray-700">Prokja ATG</div>
-                    <div class="text-xs text-gray-400">program_kerja_atg_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-prokja_atg"></div>
-                    <div class="stat-upd"  id="stat-upd-prokja_atg"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="paf" onclick="selectType('paf', this)">
-                    <div class="text-2xl mb-1">📈</div>
-                    <div class="text-xs font-semibold text-gray-700">PAF</div>
-                    <div class="text-xs text-gray-400">PAF_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-paf"></div>
-                    <div class="stat-upd"  id="stat-upd-paf"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="zero_clamp" onclick="selectType('zero_clamp', this)">
-                    <div class="text-2xl mb-1">🔩</div>
-                    <div class="text-xs font-semibold text-gray-700">Zero Clamp</div>
-                    <div class="text-xs text-gray-400">zero_clamp_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-zero_clamp"></div>
-                    <div class="stat-upd"  id="stat-upd-zero_clamp"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="issue_paf" onclick="selectType('issue_paf', this)">
-                    <div class="text-2xl mb-1">⚠️</div>
-                    <div class="text-xs font-semibold text-gray-700">Issue PAF</div>
-                    <div class="text-xs text-gray-400">Issue_PAF_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-issue_paf"></div>
-                    <div class="stat-upd"  id="stat-upd-issue_paf"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="power_stream" onclick="selectType('power_stream', this)">
-                    <div class="text-2xl mb-1">⚡</div>
-                    <div class="text-xs font-semibold text-gray-700">Power & Steam</div>
-                    <div class="text-xs text-gray-400">power_stream_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-power_stream"></div>
-                    <div class="stat-upd"  id="stat-upd-power_stream"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="jumlah_eqp" onclick="selectType('jumlah_eqp', this)">
-                    <div class="text-2xl mb-1">🏭</div>
-                    <div class="text-xs font-semibold text-gray-700">Jumlah Eqp UTL</div>
-                    <div class="text-xs text-gray-400">Jumlah_Eqp_UTL_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-jumlah_eqp"></div>
-                    <div class="stat-upd"  id="stat-upd-jumlah_eqp"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="critical_utl" onclick="selectType('critical_utl', this)">
-                    <div class="text-2xl mb-1">🚧</div>
-                    <div class="text-xs font-semibold text-gray-700">Critical Eqp UTL</div>
-                    <div class="text-xs text-gray-400">Critical_Equipment_UTL_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-critical_utl"></div>
-                    <div class="stat-upd"  id="stat-upd-critical_utl"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="critical_prim" onclick="selectType('critical_prim', this)">
-                    <div class="text-2xl mb-1">🔴</div>
-                    <div class="text-xs font-semibold text-gray-700">Critical Prim/Sec</div>
-                    <div class="text-xs text-gray-400">Critical_Eqp_Prim_Sec_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-critical_prim"></div>
-                    <div class="stat-upd"  id="stat-upd-critical_prim"></div>
-                </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="mon_operasi" onclick="selectType('mon_operasi', this)">
-                    <div class="text-2xl mb-1">📊</div>
-                    <div class="text-xs font-semibold text-gray-700">Monitoring Operasi</div>
-                    <div class="text-xs text-gray-400">monitoring_operasi_rag.xlsx</div>
-                    <div class="stat-rows" id="stat-rows-mon_operasi"></div>
-                    <div class="stat-upd"  id="stat-upd-mon_operasi"></div>
-                </div>
-            </div>
-
-
 
     <script>
     const chatbox = document.getElementById('chatbox');
