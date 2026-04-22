@@ -64,6 +64,9 @@
         <button onclick="toggleModal()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition">
             <i class="fas fa-upload"></i> Update Data
         </button>
+        <button onclick="resetSession()" class="bg-indigo-800 hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition" title="Reset memori percakapan">
+            <i class="fas fa-rotate-left"></i> Reset Sesi
+        </button>
     </header>
 
     <!-- Chat -->
@@ -261,6 +264,9 @@
     const chatbox = document.getElementById('chatbox');
     let selectedDataType = '';
 
+    // Generate session ID unik per tab browser
+    const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+
     function selectType(type, el) {
         selectedDataType = type;
         document.querySelectorAll('.card-option').forEach(e => {
@@ -269,6 +275,14 @@
         });
         el.classList.add('selected', 'border-indigo-500', 'bg-indigo-50');
         el.classList.remove('border-gray-200', 'bg-white');
+    }
+
+    async function resetSession() {
+        await fetch(`/reset-session?session_id=${SESSION_ID}`, { method: 'POST' });
+        chatbox.innerHTML = '';
+        appendMessage('ai',
+            '🔄 <b>Sesi percakapan direset.</b> Memori percakapan sebelumnya dihapus.<br>Silakan mulai percakapan baru.'
+        );
     }
 
     function toggleModal() {
@@ -540,7 +554,7 @@
         createLoadingBubble(loadingId);
         startElapsedTicker(loadingId, startTime);
 
-        const url = `/ask?question=${encodeURIComponent(text)}`;
+        const url = `/ask?question=${encodeURIComponent(text)}&session_id=${SESSION_ID}`;
         const es  = new EventSource(url);
 
         const STEP_MAP = {

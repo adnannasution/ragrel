@@ -15,6 +15,7 @@ from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
 from langchain_core.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage, AIMessage
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -120,6 +121,56 @@ PROMPT = PromptTemplate(
 db_chain = SQLDatabaseChain.from_llm(
     llm, db_engine, prompt=PROMPT, verbose=True, return_direct=False
 )
+
+# ─── SESSION MEMORY ───────────────────────────────────────────────────────────
+MAX_HISTORY = 10  # max pesan per sesi (5 pasang tanya-jawab)
+session_histories: dict[str, list] = {}
+
+def get_session_history(session_id: str) -> list:
+    return session_histories.get(session_id, [])
+
+def add_session_history(session_id: str, question: str, answer: str):
+    history = session_histories.get(session_id, [])
+    history.append(HumanMessage(content=question))
+    history.append(AIMessage(content=answer))
+    if len(history) > MAX_HISTORY:
+        history = history[-MAX_HISTORY:]
+    session_histories[session_id] = history
+
+def clear_session_history(session_id: str):
+    session_histories.pop(session_id, None)
+
+async def run_with_memory(question: str, session_id: str, loop) -> str:
+    """Jalankan query AI dengan konteks history sesi."""
+    history = get_session_history(session_id)
+    table_info = db_engine.get_table_info()
+
+    # Build messages dengan history
+    messages = [{"role": "system", "content": CUSTOM_PROMPT.replace("{table_info}", table_info).replace("{input}", "")}]
+    for msg in history:
+        if isinstance(msg, HumanMessage):
+            messages.append({"role": "user", "content": msg.content})
+        elif isinstance(msg, AIMessage):
+            messages.append({"role": "assistant", "content": msg.content})
+
+    # Step 1: Generate SQL dengan konteks history
+    sql_messages = messages + [{"role": "user", "content": f"Berikan HANYA query SQL PostgreSQL yang valid untuk: {question}. Tanpa penjelasan, tanpa markdown."}]
+    sql_response = await loop.run_in_executor(None, lambda: llm.invoke(sql_messages))
+    sql_query = sql_response.content.replace("```sql", "").replace("```", "").strip()
+
+    # Step 2: Execute SQL
+    try:
+        db_result = await loop.run_in_executor(None, lambda: db_engine.run(sql_query))
+    except Exception as e:
+        db_result = f"Query error: {str(e)}"
+
+    # Step 3: Generate jawaban final dengan hasil query + history
+    answer_messages = messages + [
+        {"role": "user", "content": question},
+        {"role": "user", "content": f"Hasil query SQL:\n{db_result}\n\nBerikan jawaban final dalam Bahasa Indonesia sesuai aturan format."}
+    ]
+    final_response = await loop.run_in_executor(None, lambda: llm.invoke(answer_messages))
+    return final_response.content
 
 # ─────────────────────────────────────────────────────────────────────────────
 # UI
@@ -512,6 +563,14 @@ def sync_prokja_atg(file_location: str, db: Session):
     return {"message": f"✅ Program Kerja ATG berhasil diupdate! ({count} records)"}
 
 # ─────────────────────────────────────────────────────────────────────────────
+# RESET SESSION MEMORY
+# ─────────────────────────────────────────────────────────────────────────────
+@app.post("/reset-session")
+async def reset_session(session_id: str = "default"):
+    clear_session_history(session_id)
+    return {"message": "✅ Sesi percakapan direset."}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # EXPORT ENDPOINT — Download tabel sebagai Excel
 # ─────────────────────────────────────────────────────────────────────────────
 EXPORT_TABLES = {
@@ -606,7 +665,7 @@ def sse(event: str, data: str) -> str:
     return f"data: {payload}\n\n"
 
 @app.get("/ask")
-async def ask_ai(question: str):
+async def ask_ai(question: str, session_id: str = "default"):
     # ── Pre-filter: tangkap pertanyaan di luar konteks sebelum buang token ke LLM
     q_lower = question.lower()
 
@@ -678,24 +737,20 @@ async def ask_ai(question: str):
             result_holder = {}
 
             async def run_chain():
-                # Langchain SQLDatabaseChain: urutan internal:
-                # 1. LLM generate SQL  → kita tandai sql_done setelah ~jeda kecil
-                # 2. DB execute SQL    → kita tandai db_done
-                # 3. LLM generate answer
                 def _invoke():
-                    return db_chain.invoke({"query": question})
+                    return None  # placeholder
 
-                fut = loop.run_in_executor(None, _invoke)
+                fut = loop.run_in_executor(None, lambda: None)
 
-                # Simulasikan sinyal intermediate yang realistis sambil nunggu hasil
-                # (LangChain tidak expose hook per-step secara publik)
-                await asyncio.sleep(2.5)          # estimasi LLM generate SQL selesai
+                await asyncio.sleep(2.5)
                 sql_done.set()
 
-                await asyncio.sleep(1.0)          # estimasi DB query selesai
+                await asyncio.sleep(1.0)
                 db_done.set()
 
-                result_holder["result"] = await fut
+                # Jalankan dengan memory
+                answer = await run_with_memory(question, session_id, loop)
+                result_holder["result"] = answer
 
             task = asyncio.create_task(run_chain())
 
@@ -710,8 +765,9 @@ async def ask_ai(question: str):
 
             await task  # tunggu chain selesai
 
-            raw = result_holder["result"]
-            answer = raw["result"].replace("```sql", "").replace("```", "").strip()
+            answer = result_holder["result"].replace("```sql", "").replace("```", "").strip()
+            # Simpan ke history sesi
+            add_session_history(session_id, question, answer)
             yield sse("done", answer)
 
         except Exception as e:
