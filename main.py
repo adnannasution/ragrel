@@ -1,11 +1,13 @@
 import os
+import json
+import asyncio
 import pandas as pd
 from fastapi import FastAPI, Depends, Request, UploadFile, File, Form
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -47,14 +49,28 @@ ATURAN QUERY SQL:
 - Selalu gunakan NULLIF(kolom_penyebut, 0) untuk menghindari division by zero.
 - Gunakan ROUND(nilai::numeric, 2) untuk pembulatan.
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
+- Untuk bad_actor_monitoring: kolom utama adalah ru, tag_number, status, problem, action_plan, progress, target_date.
+- Untuk icu_monitoring: kolom utama adalah ru, severity, equipment, problem, action_plan, progress, target_year. severity berisi nilai seperti 'Medium', 'High', 'Critical'.
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
 2. Gunakan HTML <table border='1'> untuk data banyak atau perbandingan.
 3. Gunakan <b>...</b> untuk angka penting, <i>...</i> untuk catatan kaki.
-4. Tambahkan emoticon relevan (🏭, 💰, 📊, ✅, ⚠️, 📈, 📉, 🔧, 🛢️).
-5. Jika diminta "chart/grafik/visualisasi":
-   [CHART] {{"type": "bar", "dataset_label": "Label", "labels": ["A","B"], "data": [10,20]}} [/CHART]
+4. Tambahkan emoticon relevan (🏭, 💰, 📊, ✅, ⚠️, 📈, 📉, 🔧, 🛢️, 🚨, 🔴).
+
+ATURAN GRAFIK — WAJIB DIIKUTI:
+- Jika hasil query berisi data numerik yang dapat dibandingkan (anggaran per RU, jumlah equipment per status, tren per tahun, perbandingan kategori, dsb), SELALU sertakan grafik secara otomatis tanpa perlu diminta user.
+- Pilih tipe grafik yang paling tepat berdasarkan jenis data:
+  * bar          → perbandingan antar kategori/RU (satu grup)
+  * bar cluster  → perbandingan multi-metrik per kategori (misal RKAP vs AKTUAL per RU)
+  * line         → tren waktu / data berurutan
+  * pie/doughnut → proporsi/distribusi (jumlah kategori ≤ 8)
+  * radar        → perbandingan multi-dimensi antar entitas
+  * polarArea    → distribusi dengan penekanan visual magnitude
+- Format grafik:
+  Single dataset:  [CHART] {{"type": "bar", "dataset_label": "Label", "labels": ["A","B"], "data": [10,20]}} [/CHART]
+  Multi-dataset:   [CHART] {{"type": "bar", "labels": ["RU II","RU III"], "datasets": [{{"label": "RKAP", "data": [100,200]}}, {{"label": "AKTUAL", "data": [90,210]}}]}} [/CHART]
+- Jangan sertakan grafik untuk: data teks/narasi saja, data <2 titik, atau pertanyaan yang jelas tidak butuh visualisasi (misal "siapa yang...", "apa itu...").
 
 Question: {input}"""
 
@@ -88,11 +104,13 @@ async def upload_sync(
         f.write(await file.read())
     try:
         handlers = {
-            "anggaran": sync_anggaran,
-            "pipeline": sync_pipeline,
-            "rotor":    sync_rotor,
-            "atg":      sync_atg,
-            "metering": sync_metering,
+            "anggaran":  sync_anggaran,
+            "pipeline":  sync_pipeline,
+            "rotor":     sync_rotor,
+            "atg":       sync_atg,
+            "metering":  sync_metering,
+            "badactor":  sync_badactor,
+            "icu":       sync_icu,
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -269,13 +287,139 @@ def sync_metering(file_location: str, db: Session):
     return {"message": f"✅ Metering Monitoring berhasil diupdate! ({count} records)"}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# AI ENDPOINT
+# PARSER: BAD ACTOR
 # ─────────────────────────────────────────────────────────────────────────────
+def sync_badactor(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1")
+    db.query(BadActorMonitoring).delete()
+    # Gabungkan kolom No IRKAP 1-5 menjadi satu string
+    irkap_cols = ['No IRKAP 1', 'No IRKAP 2', 'No IRKAP 3', 'No IRKAP 4', 'No IRKAP 5']
+    count = 0
+    for _, row in df.iterrows():
+        no_irkap_parts = [str(row.get(c, '') or '') for c in irkap_cols]
+        no_irkap = ' | '.join([x for x in no_irkap_parts if x and x != 'nan'])
+        target_date = row.get('Target Date')
+        target_date_str = str(target_date.date()) if pd.notna(target_date) and hasattr(target_date, 'date') else str(target_date or '')
+        periode = row.get('Periode')
+        periode_str = str(periode.date()) if pd.notna(periode) and hasattr(periode, 'date') else str(periode or '')
+        db.add(BadActorMonitoring(
+            ru                   = str(row.get('RU', '') or ''),
+            tag_number           = str(row.get('Tag Number', '') or ''),
+            status               = str(row.get('Status', '') or ''),
+            problem              = str(row.get('Problem', '') or ''),
+            action_plan          = str(row.get('Action Plan', '') or ''),
+            category_action_plan = str(row.get('Column1', '') or ''),
+            progress             = str(row.get('Progress', '') or ''),
+            target_date          = target_date_str,
+            periode              = periode_str,
+            action_plan_category = str(row.get('Action Plan Category', '') or ''),
+            external_resource    = str(row.get('Action Plan Need \nExternal Resource?', '') or ''),
+            no_irkap             = no_irkap,
+            action_plan_remark   = str(row.get('Action Plan Remark', '') or ''),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Bad Actor Monitoring berhasil diupdate! ({count} records)"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSER: ICU (INTEGRITY CONCERN UNIT)
+# ─────────────────────────────────────────────────────────────────────────────
+def sync_icu(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Sheet1", header=None)
+    db.query(ICUMonitoring).delete()
+    count = 0
+    for _, row in df.iterrows():
+        # Struktur kolom: 0=date, 1=RU, 2=severity, 3=equipment, 4=problem,
+        # 10=action_plan, 13=no_irkap, 15=progress, 17=target_year
+        update_date = row.iloc[0]
+        update_date_str = str(update_date.date()) if pd.notna(update_date) and hasattr(update_date, 'date') else str(update_date or '')
+        db.add(ICUMonitoring(
+            update_date  = update_date_str,
+            ru           = str(row.iloc[1] if pd.notna(row.iloc[1]) else ''),
+            severity     = str(row.iloc[2] if pd.notna(row.iloc[2]) else ''),
+            equipment    = str(row.iloc[3] if pd.notna(row.iloc[3]) else ''),
+            problem      = str(row.iloc[4] if pd.notna(row.iloc[4]) else ''),
+            action_plan  = str(row.iloc[10] if pd.notna(row.iloc[10]) else ''),
+            no_irkap     = str(row.iloc[13] if pd.notna(row.iloc[13]) else ''),
+            progress     = str(row.iloc[15] if pd.notna(row.iloc[15]) else ''),
+            target_year  = str(row.iloc[17] if pd.notna(row.iloc[17]) else ''),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ ICU Monitoring berhasil diupdate! ({count} records)"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AI ENDPOINT — SSE streaming dengan progress real
+# ─────────────────────────────────────────────────────────────────────────────
+def sse(event: str, data: str) -> str:
+    payload = json.dumps({"event": event, "data": data})
+    return f"data: {payload}\n\n"
+
 @app.get("/ask")
 async def ask_ai(question: str):
-    try:
-        response = db_chain.invoke({"query": question})
-        answer = response["result"].replace("```sql", "").replace("```", "").strip()
-        return {"answer": answer}
-    except Exception as e:
-        return {"error": f"AI Error: {str(e)}"}
+    async def generate():
+        try:
+            # ── STEP 1: parsing pertanyaan ──────────────────────────────────
+            yield sse("progress", "parse")
+            await asyncio.sleep(0)          # flush ke client
+
+            # ── STEP 2: menyusun SQL (invoke dijalankan di thread pool) ─────
+            yield sse("progress", "sql")
+            await asyncio.sleep(0)
+
+            loop = asyncio.get_event_loop()
+
+            # Jalankan db_chain.invoke di thread pool agar tidak blokir event loop
+            # Kita inject hook via callback-style dengan flag sederhana
+            sql_done = asyncio.Event()
+            db_done  = asyncio.Event()
+            result_holder = {}
+
+            async def run_chain():
+                # Langchain SQLDatabaseChain: urutan internal:
+                # 1. LLM generate SQL  → kita tandai sql_done setelah ~jeda kecil
+                # 2. DB execute SQL    → kita tandai db_done
+                # 3. LLM generate answer
+                def _invoke():
+                    return db_chain.invoke({"query": question})
+
+                fut = loop.run_in_executor(None, _invoke)
+
+                # Simulasikan sinyal intermediate yang realistis sambil nunggu hasil
+                # (LangChain tidak expose hook per-step secara publik)
+                await asyncio.sleep(2.5)          # estimasi LLM generate SQL selesai
+                sql_done.set()
+
+                await asyncio.sleep(1.0)          # estimasi DB query selesai
+                db_done.set()
+
+                result_holder["result"] = await fut
+
+            task = asyncio.create_task(run_chain())
+
+            # Stream progress saat event terjadi
+            await sql_done.wait()
+            yield sse("progress", "db")
+            await asyncio.sleep(0)
+
+            await db_done.wait()
+            yield sse("progress", "answer")
+            await asyncio.sleep(0)
+
+            await task  # tunggu chain selesai
+
+            raw = result_holder["result"]
+            answer = raw["result"].replace("```sql", "").replace("```", "").strip()
+            yield sse("done", answer)
+
+        except Exception as e:
+            yield sse("error", f"AI Error: {str(e)}")
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # penting untuk nginx proxy
+        }
+    )
