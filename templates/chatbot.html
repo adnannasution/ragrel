@@ -281,18 +281,25 @@
 
         if (chartData) {
             const chartType = chartData.type || 'bar';
-            const isPie = ['pie','doughnut','polarArea'].includes(chartType);
+            const isPie     = ['pie','doughnut','polarArea'].includes(chartType);
+            const isScatter = chartType === 'scatter';
             new Chart(msgDiv.querySelector('canvas'), {
                 type: chartType,
                 data: {
-                    labels: chartData.labels,
+                    labels: isScatter ? undefined : chartData.labels,
                     datasets: buildDatasets(chartData),
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: true } },
-                    ...(isPie ? {} : { scales: { y: { beginAtZero: true } } }),
+                    ...(isPie || isScatter ? {} : { scales: { y: { beginAtZero: true } } }),
+                    ...(isScatter ? {
+                        scales: {
+                            x: { title: { display: true, text: chartData.x_label || 'X' } },
+                            y: { title: { display: true, text: chartData.y_label || 'Y' } },
+                        }
+                    } : {}),
                 }
             });
         }

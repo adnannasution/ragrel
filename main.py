@@ -86,7 +86,8 @@ ATURAN GRAFIK — WAJIB DIIKUTI:
 - Format grafik:
   Single dataset:  [CHART] {{"type": "bar", "dataset_label": "Label", "labels": ["A","B"], "data": [10,20]}} [/CHART]
   Multi-dataset:   [CHART] {{"type": "bar", "labels": ["RU II","RU III"], "datasets": [{{"label": "RKAP", "data": [100,200]}}, {{"label": "AKTUAL", "data": [90,210]}}]}} [/CHART]
-- Jangan sertakan grafik untuk: data teks/narasi saja, data <2 titik, atau pertanyaan yang jelas tidak butuh visualisasi (misal "siapa yang...", "apa itu...").
+  Scatter plot:    [CHART] {{"type": "scatter", "datasets": [{{"label": "Label", "data": [{{"x": 10, "y": 20}}, {{"x": 15, "y": 30}}]}}]}} [/CHART]
+- Scatter plot cocok untuk: korelasi antar dua variabel numerik (misal rem_life_years vs last_measured_thickness, anggaran vs jumlah bad actor per RU, dsb)
 
 Question: {input}"""
 
