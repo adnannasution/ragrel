@@ -215,7 +215,9 @@
     ];
 
     function buildDatasets(chartData) {
-        // Support multi-dataset (cluster) OR single dataset
+        const isPie = ['pie', 'doughnut', 'polarArea'].includes(chartData.type || 'bar');
+
+        // Multi-dataset (cluster bar)
         if (chartData.datasets && Array.isArray(chartData.datasets)) {
             return chartData.datasets.map((ds, i) => {
                 const [bg, border] = PALETTE[i % PALETTE.length];
@@ -228,7 +230,19 @@
                 };
             });
         }
-        // Legacy single dataset
+
+        // Pie/doughnut/polarArea — tiap slice warna berbeda
+        if (isPie) {
+            return [{
+                label: chartData.dataset_label || 'Data',
+                data:  chartData.data,
+                backgroundColor: chartData.data.map((_, i) => PALETTE[i % PALETTE.length][0]),
+                borderColor:     chartData.data.map((_, i) => PALETTE[i % PALETTE.length][1]),
+                borderWidth: 1,
+            }];
+        }
+
+        // Single dataset bar/line
         const [bg, border] = PALETTE[0];
         return [{
             label: chartData.dataset_label || 'Data',
