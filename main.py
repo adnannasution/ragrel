@@ -1,551 +1,483 @@
-import os
-import json
-import asyncio
-import pandas as pd
-from datetime import datetime
-from fastapi import FastAPI, Depends, Request, UploadFile, File, Form
-from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlalchemy.orm import Session
-from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring
-from langchain_openai import ChatOpenAI
-from langchain_community.utilities import SQLDatabase
-from langchain_experimental.sql import SQLDatabaseChain
-from langchain_core.prompts import PromptTemplate
-from dotenv import load_dotenv
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance AI | Dinoiki</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chat-area { height: calc(100vh - 200px); }
+        .ai-bubble  { border-radius: 0 15px 15px 15px; }
+        .user-bubble{ border-radius: 15px 15px 0 15px; }
+        .ai-msg table { width:100%; border-collapse:collapse; margin:12px 0; font-size:0.82rem; border:1px solid #e2e8f0; }
+        .ai-msg th { background:#4f46e5; color:#fff; padding:9px 10px; text-align:left; }
+        .ai-msg td { padding:7px 10px; border-bottom:1px solid #f1f5f9; color:#334155; }
+        .ai-msg tr:hover td { background:#f8fafc; }
+        .ai-msg i  { color:#64748b; font-size:0.82rem; display:block; margin-top:8px; border-top:1px dotted #e2e8f0; padding-top:4px; }
+        .card-option { transition: all .15s; }
+        .card-option:hover { transform: translateY(-2px); }
+        .card-option.selected { box-shadow: 0 0 0 3px #6366f1; }
+        .card-option.no-data { opacity: 0.55; }
+        .stat-rows { font-size:0.68rem; font-weight:600; color:#6366f1; margin-top:4px; min-height:14px; }
+        .stat-upd  { font-size:0.62rem; color:#cbd5e1; line-height:1.3; min-height:12px; }
 
-load_dotenv()
+        /* ── Loading Status Steps ── */
+        .loading-bubble { animation: fadeInUp 0.3s ease; }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
-UPLOAD_REGISTRY = "upload_registry.json"
+        .step-item { display:flex; align-items:center; gap:10px; padding:6px 0; font-size:0.8rem; color:#94a3b8; transition: color 0.4s; }
+        .step-item.active  { color:#4f46e5; }
+        .step-item.done    { color:#10b981; }
+        .step-item.error   { color:#ef4444; }
 
-def _load_registry() -> dict:
-    if os.path.exists(UPLOAD_REGISTRY):
-        try:
-            return json.load(open(UPLOAD_REGISTRY))
-        except:
-            pass
-    return {}
+        .step-icon { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.7rem; flex-shrink:0; border:2px solid currentColor; transition: all 0.3s; }
+        .step-item.active .step-icon  { background:#ede9fe; border-color:#4f46e5; }
+        .step-item.done   .step-icon  { background:#d1fae5; border-color:#10b981; }
+        .step-item.error  .step-icon  { background:#fee2e2; border-color:#ef4444; }
+        .step-item.pending .step-icon { border-color:#e2e8f0; }
 
-def _save_upload_time(data_type: str):
-    registry = _load_registry()
-    registry[data_type] = datetime.now().strftime("%d %b %Y, %H:%M")
-    json.dump(registry, open(UPLOAD_REGISTRY, "w"))
+        .spinner { width:14px; height:14px; border:2px solid #c7d2fe; border-top:2px solid #4f46e5; border-radius:50%; animation:spin 0.7s linear infinite; }
+        @keyframes spin { to { transform:rotate(360deg); } }
 
-app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+        .elapsed { font-size:0.7rem; color:#cbd5e1; margin-left:auto; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans h-screen flex flex-col">
 
-@app.on_event("startup")
-def startup():
-    Base.metadata.create_all(bind=engine)
+    <!-- Header -->
+    <header class="bg-indigo-900 text-white px-8 py-4 shadow-md flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <i class="fas fa-robot text-2xl text-indigo-300"></i>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Maintenance AI Assistant</h1>
+                <p class="text-xs text-indigo-300">Anggaran · Pipeline · Rotor · ATG · Metering &nbsp;|&nbsp; GPT-4o Dinoiki</p>
+            </div>
+        </div>
+        <button onclick="toggleModal()" class="bg-indigo-700 hover:bg-indigo-600 px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition">
+            <i class="fas fa-upload"></i> Update Data
+        </button>
+    </header>
 
-llm = ChatOpenAI(
-    model="gpt-4o",
-    openai_api_key=os.getenv("DINOIKI_API_KEY"),
-    base_url="https://ai.dinoiki.com/v1",
-    temperature=0.7
-)
+    <!-- Chat -->
+    <main id="chatbox" class="flex-1 overflow-y-auto p-6 space-y-4 chat-area">
+        <div class="flex items-start gap-3">
+            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="bg-white p-4 shadow-sm ai-bubble text-gray-700 max-w-2xl border text-sm leading-relaxed">
+                Halo! Saya siap menganalisis data maintenance kilang. Sumber data yang tersedia:<br><br>
+                💰 <b>Anggaran Maintenance</b> — RKAP, PLAN, AKTUAL per RU 2018–2025<br>
+                🔧 <b>Pipeline Inspection</b> — Inspeksi pipa, ketebalan, sisa umur<br>
+                ⚙️ <b>Rotor Monitoring</b> — Status spare rotor & workplan<br>
+                🛢️ <b>ATG Monitoring</b> — Status Automatic Tank Gauge & sertifikasi<br>
+                📏 <b>Metering Monitoring</b> — Status metering & sertifikasi<br>
+                🚨 <b>Bad Actor Monitoring</b> — Equipment bermasalah, action plan & progress<br>
+                🔴 <b>ICU Monitoring</b> — Integrity Concern Unit, severity & mitigasi<br><br>
+                Silakan ajukan pertanyaan, termasuk yang <b>lintas tabel</b>.
+            </div>
+        </div>
+    </main>
 
-db_engine = SQLDatabase.from_uri(DATABASE_URL)
+    <!-- Input -->
+    <footer class="p-4 bg-white border-t shadow-inner">
+        <div class="max-w-4xl mx-auto flex gap-3">
+            <input type="text" id="userInput"
+                placeholder="Contoh: ATG mana yang sertifikasinya sudah expired atau hampir expired?"
+                class="flex-1 p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm text-sm">
+            <button onclick="sendQuestion()" class="bg-indigo-600 text-white px-5 rounded-2xl hover:bg-indigo-700 transition shadow">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </footer>
 
-CUSTOM_PROMPT = """You are a PostgreSQL expert and a helpful AI Assistant for a refinery company.
-Given an input question, create a syntactically correct PostgreSQL query to run.
-HANYA BERIKAN QUERY SQL MURNI, TANPA MARKDOWN ATAU BACKTICK.
+    <!-- Modal Upload -->
+    <div id="uploadModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="font-bold text-gray-800 text-base">Update Data</h3>
+                <button onclick="toggleModal()" class="text-gray-400 text-2xl leading-none hover:text-gray-600">&times;</button>
+            </div>
 
-Setelah mendapatkan hasil dari database, berikan jawaban akhir dalam Bahasa Indonesia yang profesional.
+            <p class="text-xs text-gray-500 mb-3 font-medium">Pilih jenis data yang akan diupload:</p>
 
-STRUKTUR TABEL TERSEDIA:
-{table_info}
+            <!-- Pilihan kartu -->
+            <div class="grid grid-cols-3 gap-2 mb-4">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="anggaran" onclick="selectType('anggaran', this)">
+                    <div class="text-2xl mb-1">💰</div>
+                    <div class="text-xs font-semibold text-gray-700">Anggaran</div>
+                    <div class="text-xs text-gray-400">Sheet: RU's</div>
+                    <div class="stat-rows" id="stat-rows-anggaran"></div>
+                    <div class="stat-upd"  id="stat-upd-anggaran"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="pipeline" onclick="selectType('pipeline', this)">
+                    <div class="text-2xl mb-1">🔧</div>
+                    <div class="text-xs font-semibold text-gray-700">Pipeline</div>
+                    <div class="text-xs text-gray-400">pipeline_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-pipeline"></div>
+                    <div class="stat-upd"  id="stat-upd-pipeline"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="rotor" onclick="selectType('rotor', this)">
+                    <div class="text-2xl mb-1">⚙️</div>
+                    <div class="text-xs font-semibold text-gray-700">Rotor</div>
+                    <div class="text-xs text-gray-400">rotor_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-rotor"></div>
+                    <div class="stat-upd"  id="stat-upd-rotor"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="atg" onclick="selectType('atg', this)">
+                    <div class="text-2xl mb-1">🛢️</div>
+                    <div class="text-xs font-semibold text-gray-700">ATG</div>
+                    <div class="text-xs text-gray-400">ATG_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-atg"></div>
+                    <div class="stat-upd"  id="stat-upd-atg"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="metering" onclick="selectType('metering', this)">
+                    <div class="text-2xl mb-1">📏</div>
+                    <div class="text-xs font-semibold text-gray-700">Metering</div>
+                    <div class="text-xs text-gray-400">metering_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-metering"></div>
+                    <div class="stat-upd"  id="stat-upd-metering"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="badactor" onclick="selectType('badactor', this)">
+                    <div class="text-2xl mb-1">🚨</div>
+                    <div class="text-xs font-semibold text-gray-700">Bad Actor</div>
+                    <div class="text-xs text-gray-400">badactor_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-badactor"></div>
+                    <div class="stat-upd"  id="stat-upd-badactor"></div>
+                </div>
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="icu" onclick="selectType('icu', this)">
+                    <div class="text-2xl mb-1">🔴</div>
+                    <div class="text-xs font-semibold text-gray-700">ICU</div>
+                    <div class="text-xs text-gray-400">icu_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-icu"></div>
+                    <div class="stat-upd"  id="stat-upd-icu"></div>
+                </div>
+            </div>
 
-ATURAN QUERY SQL:
-- Pilih tabel yang paling relevan berdasarkan nama tabel dan kolom yang tersedia.
-- Jika tabel relevan kosong, jawab: "Data belum tersedia, silakan upload datanya terlebih dahulu."
-- Jangan query tabel yang tidak relevan dengan pertanyaan.
-- Kolom RU antar tabel mungkin berbeda format, gunakan ILIKE '%RU II%' saat JOIN.
-- Selalu gunakan NULLIF(kolom_penyebut, 0) untuk menghindari division by zero.
-- Gunakan ROUND(nilai::numeric, 2) untuk pembulatan.
-- Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
-- Untuk bad_actor_monitoring: kolom utama adalah ru, tag_number, status, problem, action_plan, progress, target_date.
-- Untuk icu_monitoring: kolom utama adalah ru, icu_status (Medium/High/Critical/Low), tag_no, issue, mitigation, permanent_solution, progress, target_closed, report_date.
+            <input type="file" id="excelFile" accept=".xlsx,.xls"
+                class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-4" />
 
-ATURAN FORMAT JAWABAN:
-1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
-2. Gunakan HTML <table border='1'> untuk data banyak atau perbandingan.
-3. Gunakan <b>...</b> untuk angka penting, <i>...</i> untuk catatan kaki.
-4. Tambahkan emoticon relevan (🏭, 💰, 📊, ✅, ⚠️, 📈, 📉, 🔧, 🛢️, 🚨, 🔴).
+            <button onclick="processUpload()" id="syncBtn"
+                class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition text-sm">
+                Mulai Sinkronisasi
+            </button>
+        </div>
+    </div>
 
-ATURAN GRAFIK — WAJIB DIIKUTI:
-- Jika hasil query berisi data numerik yang dapat dibandingkan (anggaran per RU, jumlah equipment per status, tren per tahun, perbandingan kategori, dsb), SELALU sertakan grafik secara otomatis tanpa perlu diminta user.
-- Pilih tipe grafik yang paling tepat berdasarkan jenis data:
-  * bar          → perbandingan antar kategori/RU (satu grup)
-  * bar cluster  → perbandingan multi-metrik per kategori (misal RKAP vs AKTUAL per RU)
-  * line         → tren waktu / data berurutan
-  * pie/doughnut → proporsi/distribusi (jumlah kategori ≤ 8)
-  * radar        → perbandingan multi-dimensi antar entitas
-  * polarArea    → distribusi dengan penekanan visual magnitude
-- Format grafik:
-  Single dataset:  [CHART] {{"type": "bar", "dataset_label": "Label", "labels": ["A","B"], "data": [10,20]}} [/CHART]
-  Multi-dataset:   [CHART] {{"type": "bar", "labels": ["RU II","RU III"], "datasets": [{{"label": "RKAP", "data": [100,200]}}, {{"label": "AKTUAL", "data": [90,210]}}]}} [/CHART]
-- Jangan sertakan grafik untuk: data teks/narasi saja, data <2 titik, atau pertanyaan yang jelas tidak butuh visualisasi (misal "siapa yang...", "apa itu...").
+    <script>
+    const chatbox = document.getElementById('chatbox');
+    let selectedDataType = '';
 
-Question: {input}"""
+    function selectType(type, el) {
+        selectedDataType = type;
+        document.querySelectorAll('.card-option').forEach(e => {
+            e.classList.remove('selected', 'border-indigo-500', 'bg-indigo-50');
+            e.classList.add('border-gray-200', 'bg-white');
+        });
+        el.classList.add('selected', 'border-indigo-500', 'bg-indigo-50');
+        el.classList.remove('border-gray-200', 'bg-white');
+    }
 
-PROMPT = PromptTemplate(
-    input_variables=["input", "table_info"],
-    template=CUSTOM_PROMPT
-)
+    function toggleModal() {
+        const modal = document.getElementById('uploadModal');
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) fetchTableStats();
+    }
 
-db_chain = SQLDatabaseChain.from_llm(
-    llm, db_engine, prompt=PROMPT, verbose=True, return_direct=False
-)
+    async function fetchTableStats() {
+        try {
+            const res = await fetch('/table-stats');
+            const stats = await res.json();
+            Object.entries(stats).forEach(([key, val]) => {
+                const rowsEl = document.getElementById(`stat-rows-${key}`);
+                const updEl  = document.getElementById(`stat-upd-${key}`);
+                const card   = document.querySelector(`[data-type="${key}"]`);
+                if (rowsEl) rowsEl.textContent = val.rows > 0 ? `${val.rows.toLocaleString('id-ID')} baris` : 'Belum ada data';
+                if (updEl)  updEl.textContent  = val.updated ? `Upload: ${val.updated}` : '';
+                if (card) {
+                    card.classList.toggle('no-data', val.rows === 0);
+                }
+            });
+        } catch(e) { console.error('Stats error', e); }
+    }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# UI
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/", response_class=HTMLResponse)
-async def chat_ui(request: Request):
-    return templates.TemplateResponse(request=request, name="chatbot.html")
+    // ── CHART PALETTE ──────────────────────────────────────────────────────────
+    const PALETTE = [
+        ['rgba(79,70,229,0.75)',  'rgb(79,70,229)'],
+        ['rgba(16,185,129,0.75)', 'rgb(16,185,129)'],
+        ['rgba(245,158,11,0.75)', 'rgb(245,158,11)'],
+        ['rgba(239,68,68,0.75)',  'rgb(239,68,68)'],
+        ['rgba(99,102,241,0.75)', 'rgb(99,102,241)'],
+        ['rgba(20,184,166,0.75)', 'rgb(20,184,166)'],
+        ['rgba(249,115,22,0.75)', 'rgb(249,115,22)'],
+        ['rgba(168,85,247,0.75)', 'rgb(168,85,247)'],
+    ];
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ROUTER UPLOAD
-# ─────────────────────────────────────────────────────────────────────────────
-@app.post("/upload-sync")
-async def upload_sync(
-    file: UploadFile = File(...),
-    data_type: str = Form(...),  # anggaran | pipeline | rotor | atg | metering
-    db: Session = Depends(get_db)
-):
-    file_location = f"temp_{file.filename}"
-    with open(file_location, "wb") as f:
-        f.write(await file.read())
-    try:
-        handlers = {
-            "anggaran":  sync_anggaran,
-            "pipeline":  sync_pipeline,
-            "rotor":     sync_rotor,
-            "atg":       sync_atg,
-            "metering":  sync_metering,
-            "badactor":  sync_badactor,
-            "icu":       sync_icu,
+    function buildDatasets(chartData) {
+        const isPie = ['pie', 'doughnut', 'polarArea'].includes(chartData.type || 'bar');
+
+        // Multi-dataset (cluster bar)
+        if (chartData.datasets && Array.isArray(chartData.datasets)) {
+            return chartData.datasets.map((ds, i) => {
+                const [bg, border] = PALETTE[i % PALETTE.length];
+                return {
+                    label: ds.label || `Dataset ${i+1}`,
+                    data:  ds.data,
+                    backgroundColor: bg,
+                    borderColor: border,
+                    borderWidth: 1,
+                };
+            });
         }
-        if data_type not in handlers:
-            return {"error": f"Jenis data tidak dikenal: {data_type}"}
-        result = handlers[data_type](file_location, db)
-        _save_upload_time(data_type)
-        return result
-    except Exception as e:
-        db.rollback()
-        return {"error": f"Gagal proses Excel: {str(e)}"}
-    finally:
-        if os.path.exists(file_location):
-            os.remove(file_location)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: ANGGARAN (tidak diubah)
-# ─────────────────────────────────────────────────────────────────────────────
-def sync_anggaran(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="RU's", header=None)
-    ru_col_start = {
-        'RU II': 1, 'RU III': 9, 'RU IV': 17,
-        'RU V': 25, 'RU VI': 33, 'RU VII': 41, 'All RUs': 49,
-    }
-    ru_years = {}
-    for ru_name, start_col in ru_col_start.items():
-        years = []
-        for i in range(8):
-            val = df.iloc[2, start_col + i]
-            try:
-                years.append(int(float(val)))
-            except:
-                years.append(None)
-        ru_years[ru_name] = years
-
-    row_mapping = [
-        (4,  'RUTIN',       'RKAP'), (5,  'RUTIN',       'PLAN'), (6,  'RUTIN',       'AKTUAL'),
-        (8,  'NON RUTIN',   'RKAP'), (9,  'NON RUTIN',   'PLAN'), (10, 'NON RUTIN',   'AKTUAL'),
-        (12, 'TURN AROUND', 'RKAP'), (13, 'TURN AROUND', 'PLAN'), (14, 'TURN AROUND', 'AKTUAL'),
-        (16, 'OVERHAUL',    'RKAP'), (17, 'OVERHAUL',    'PLAN'), (18, 'OVERHAUL',    'AKTUAL'),
-        (21, 'TOTAL',       'RKAP'), (22, 'TOTAL',       'PLAN'), (23, 'TOTAL',       'AKTUAL'),
-    ]
-    db.query(AnggaranMaintenance).delete()
-    count = 0
-    for row_idx, kategori, tipe in row_mapping:
-        for ru_name, start_col in ru_col_start.items():
-            for i, year in enumerate(ru_years[ru_name]):
-                if year is None:
-                    continue
-                val = df.iloc[row_idx, start_col + i]
-                try:
-                    val = float(val)
-                    if val != val:
-                        val = None
-                except:
-                    val = None
-                db.add(AnggaranMaintenance(
-                    ru=ru_name, tahun=year,
-                    kategori=kategori, tipe=tipe, nilai_usd=val
-                ))
-                count += 1
-    db.commit()
-    return {"message": f"✅ Anggaran Maintenance berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: PIPELINE
-# ─────────────────────────────────────────────────────────────────────────────
-def sync_pipeline(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
-    db.query(PipelineInspection).delete()
-    count = 0
-    for _, row in df.iterrows():
-        db.add(PipelineInspection(
-            refinery_unit           = str(row.get('RefineryUnit', '') or ''),
-            area                    = str(row.get('Area', '') or ''),
-            unit                    = str(row.get('Unit', '') or ''),
-            tag_number              = str(row.get('TagNumber', '') or ''),
-            last_inspection_date    = str(row.get('LastInspectionDate', '') or ''),
-            next_inspection_date    = str(row.get('NextInspectionDate', '') or ''),
-            fluida_service          = str(row.get('FluidaService', '') or ''),
-            nps                     = str(row.get('NPS', '') or ''),
-            from_location           = str(row.get('From', '') or ''),
-            to_location             = str(row.get('To', '') or ''),
-            last_measured_thickness = float(row['Last Measured Thickness']) if pd.notna(row.get('Last Measured Thickness')) else None,
-            rem_life_years          = float(row['RemLifeLastInspYears']) if pd.notna(row.get('RemLifeLastInspYears')) else None,
-            jumlah_temporary_repair = (lambda v: int(v) if pd.notna(v) and str(v).strip().lstrip('-').isdigit() else None)(row.get('JumlahTemporary Repair')),
-            remarks                 = str(row.get('Remarks', '') or '') + (f" [Temporary Repair: {row.get('JumlahTemporary Repair')}]" if pd.notna(row.get('JumlahTemporary Repair')) and not str(row.get('JumlahTemporary Repair')).strip().lstrip('-').isdigit() else ''),
-            bulan                   = str(row.get('Bulan', '') or ''),
-            tahun                   = int(row['Tahun']) if pd.notna(row.get('Tahun')) else None,
-        ))
-        count += 1
-    db.commit()
-    return {"message": f"✅ Pipeline Inspection berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: ROTOR
-# ─────────────────────────────────────────────────────────────────────────────
-def sync_rotor(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
-    db.query(RotorMonitoring).delete()
-    count = 0
-    for _, row in df.iterrows():
-        db.add(RotorMonitoring(
-            no                     = int(row['No']) if pd.notna(row.get('No')) else None,
-            refinery_unit          = str(row.get('Refinery Unit', '') or ''),
-            bulan                  = str(row.get('Bulan', '') or ''),
-            rotor                  = str(row.get('Rotor', '') or ''),
-            program                = str(row.get('Program', '') or ''),
-            brand                  = str(row.get('Brand', '') or ''),
-            status_readiness_spare = str(row.get('Status Readiness Spare Rotor', '') or ''),
-            status_workplan        = str(row.get('Status Workplan', '') or ''),
-            detail_status_workplan = str(row.get('Detail Status Workplan', '') or ''),
-            keterangan             = str(row.get('Keterangan', '') or ''),
-            action_plan_category   = str(row.get('Action Plan Category', '') or ''),
-            external_resource      = str(row.get('External Resource', '') or ''),
-            no_irkap               = str(row.get('NO.IRKAP', '') or ''),
-            finish_date_eksekusi   = str(row.get('Finish Date Eksekusi', '') or ''),
-            readiness_rotor        = int(row['Readiness Rotor']) if pd.notna(row.get('Readiness Rotor')) else None,
-            last_update            = str(row.get('Last Update', '') or ''),
-        ))
-        count += 1
-    db.commit()
-    return {"message": f"✅ Rotor Monitoring berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: ATG
-# ─────────────────────────────────────────────────────────────────────────────
-def sync_atg(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
-    db.query(ATGMonitoring).delete()
-    count = 0
-    for _, row in df.iterrows():
-        db.add(ATGMonitoring(
-            refinery_unit           = str(row.get('Refinery Unit', '') or ''),
-            tag_no_tangki           = str(row.get('Tag No. Tangki', '') or ''),
-            tag_no_atg              = str(row.get('Tag No. ATG', '') or ''),
-            status_atg              = str(row.get('Status ATG', '') or ''),
-            status_interkoneksi_atg = str(row.get('Status Interkoneksi ATG ', '') or ''),
-            cert_no_atg             = str(row.get('Cert No ATG', '') or ''),
-            date_expired_atg        = str(row.get('Date Expired ATG', '') or ''),
-            remark                  = str(row.get('Remark', '') or ''),
-            rtl                     = str(row.get('RTL', '') or ''),
-            action_plan_category    = str(row.get('Action Plan Category', '') or ''),
-            external_resource       = str(row.get('External Resource', '') or ''),
-            no_irkap                = str(row.get('NO.IRKAP', '') or ''),
-            status_rtl              = str(row.get('Status RTL', '') or ''),
-            month_update            = str(row.get('Month Update', '') or ''),
-        ))
-        count += 1
-    db.commit()
-    return {"message": f"✅ ATG Monitoring berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: METERING
-# ─────────────────────────────────────────────────────────────────────────────
-def sync_metering(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
-    db.query(MeteringMonitoring).delete()
-    count = 0
-    for _, row in df.iterrows():
-        db.add(MeteringMonitoring(
-            refinery_unit         = str(row.get('Refinery Unit', '') or ''),
-            tag_number            = str(row.get('Tag Number', '') or ''),
-            status_metering       = str(row.get('Status Metering', '') or ''),
-            cert_no_metering      = str(row.get('Cert No Metering', '') or ''),
-            date_expired_metering = str(row.get('Date Expired Metering', '') or ''),
-            remark                = str(row.get('Remark', '') or ''),
-            rtl                   = str(row.get('RTL', '') or ''),
-            action_plan_category  = str(row.get('Action Plan Category', '') or ''),
-            external_resource     = str(row.get('External Resource', '') or ''),
-            no_irkap              = str(row.get('NO.IRKAP', '') or ''),
-            status_rtl            = str(row.get('Status RTL', '') or ''),
-            month_update          = str(row.get('Month Update', '') or ''),
-        ))
-        count += 1
-    db.commit()
-    return {"message": f"✅ Metering Monitoring berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: BAD ACTOR
-# ─────────────────────────────────────────────────────────────────────────────
-def sync_badactor(file_location: str, db: Session):
-    df = pd.read_excel(file_location, sheet_name="Sheet1")
-    db.query(BadActorMonitoring).delete()
-    # Gabungkan kolom No IRKAP 1-5 menjadi satu string
-    irkap_cols = ['No IRKAP 1', 'No IRKAP 2', 'No IRKAP 3', 'No IRKAP 4', 'No IRKAP 5']
-    count = 0
-    for _, row in df.iterrows():
-        no_irkap_parts = [str(row.get(c, '') or '') for c in irkap_cols]
-        no_irkap = ' | '.join([x for x in no_irkap_parts if x and x != 'nan'])
-        target_date = row.get('Target Date')
-        target_date_str = str(target_date.date()) if pd.notna(target_date) and hasattr(target_date, 'date') else str(target_date or '')
-        periode = row.get('Periode')
-        periode_str = str(periode.date()) if pd.notna(periode) and hasattr(periode, 'date') else str(periode or '')
-        db.add(BadActorMonitoring(
-            ru                   = str(row.get('RU', '') or ''),
-            tag_number           = str(row.get('Tag Number', '') or ''),
-            status               = str(row.get('Status', '') or ''),
-            problem              = str(row.get('Problem', '') or ''),
-            action_plan          = str(row.get('Action Plan', '') or ''),
-            category_action_plan = str(row.get('Column1', '') or ''),
-            progress             = str(row.get('Progress', '') or ''),
-            target_date          = target_date_str,
-            periode              = periode_str,
-            action_plan_category = str(row.get('Action Plan Category', '') or ''),
-            external_resource    = str(row.get('Action Plan Need \nExternal Resource?', '') or ''),
-            no_irkap             = no_irkap,
-            action_plan_remark   = str(row.get('Action Plan Remark', '') or ''),
-        ))
-        count += 1
-    db.commit()
-    return {"message": f"✅ Bad Actor Monitoring berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARSER: ICU (INTEGRITY CONCERN UNIT)
-# ─────────────────────────────────────────────────────────────────────────────
-def _safe(val) -> str:
-    """Konversi nilai Excel ke string bersih — strip whitespace dan newline berlebih."""
-    if val is None:
-        return ''
-    try:
-        import pandas as _pd
-        if _pd.isna(val):
-            return ''
-    except Exception:
-        pass
-    return str(val).strip()
-
-def sync_icu(file_location: str, db: Session):
-    # Baca dengan header=0, lalu rename kolom duplikat ke nama aslinya (hapus suffix _0, _1, dst)
-    df = pd.read_excel(file_location, sheet_name="Sheet1", header=0)
-
-    # Normalisasi nama kolom — hapus suffix duplikat pandas (_0, _1, .1, .2, dst)
-    import re
-    clean_cols = []
-    for col in df.columns:
-        cleaned = re.sub(r'(\.\d+|_\d+)$', '', str(col)).strip()
-        clean_cols.append(cleaned)
-    df.columns = clean_cols
-
-    # Mapping fleksibel: cari kolom by substring jika nama exact tidak ditemukan
-    def find_col(df, *candidates):
-        """Cari nama kolom yang cocok, fallback ke partial match."""
-        for c in candidates:
-            if c in df.columns:
-                return c
-            # partial match case-insensitive
-            matches = [col for col in df.columns if c.lower() in col.lower()]
-            if matches:
-                return matches[0]
-        return None
-
-    COL_MAP = {
-        'report_date':         find_col(df, 'Report Date'),
-        'ru':                  find_col(df, 'RU'),
-        'icu_status':          find_col(df, 'ICU Status'),
-        'tag_no':              find_col(df, 'Tag No'),
-        'issue':               find_col(df, 'Issue'),
-        'mitigation':          find_col(df, 'Mitigation/Temporary Solution', 'Mitigation'),
-        'mitigasi_category':   find_col(df, 'Mitigasi Category', 'Mitigation Category'),
-        'mitigation_external': find_col(df, 'Mitigation Need External Resource'),
-        'irkap_mitigation':    find_col(df, 'IRKAP Mitigation'),
-        'remark_mitigation':   find_col(df, 'Remark Mitigation'),
-        'permanent_solution':  find_col(df, 'Permanent Solution'),
-        'solution_category':   find_col(df, 'Solution Category'),
-        'solution_external':   find_col(df, 'Solution Need External Resource'),
-        'irkap_solution':      find_col(df, 'IRKAP Solution'),
-        'remark_solution':     find_col(df, 'Remark Solution'),
-        'progress':            find_col(df, 'Progres', 'Progress'),
-        'info':                find_col(df, 'Info'),
-        'target_closed':       find_col(df, 'Target Closed'),
-    }
-
-    db.query(ICUMonitoring).delete()
-    count = 0
-    for _, row in df.iterrows():
-        def g(field):
-            col = COL_MAP.get(field)
-            if not col:
-                return ''
-            v = row.get(col)
-            try:
-                return _safe(v) if pd.notna(v) else ''
-            except Exception:
-                return _safe(v)
-
-        rd = row.get(COL_MAP.get('report_date', ''), None)
-        try:
-            report_date = str(rd.date()) if pd.notna(rd) and hasattr(rd, 'date') else _safe(rd)
-        except Exception:
-            report_date = _safe(rd)
-
-        db.add(ICUMonitoring(
-            report_date         = report_date,
-            ru                  = g('ru'),
-            icu_status          = g('icu_status'),
-            tag_no              = g('tag_no'),
-            issue               = g('issue'),
-            mitigation          = g('mitigation'),
-            mitigasi_category   = g('mitigasi_category'),
-            mitigation_external = g('mitigation_external'),
-            irkap_mitigation    = g('irkap_mitigation'),
-            remark_mitigation   = g('remark_mitigation'),
-            permanent_solution  = g('permanent_solution'),
-            solution_category   = g('solution_category'),
-            solution_external   = g('solution_external'),
-            irkap_solution      = g('irkap_solution'),
-            remark_solution     = g('remark_solution'),
-            progress            = g('progress'),
-            info                = g('info'),
-            target_closed       = g('target_closed'),
-        ))
-        count += 1
-    db.commit()
-    return {"message": f"✅ ICU Monitoring berhasil diupdate! ({count} records)"}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# TABLE STATS ENDPOINT
-# ─────────────────────────────────────────────────────────────────────────────
-@app.get("/table-stats")
-def table_stats(db: Session = Depends(get_db)):
-    from sqlalchemy import text, inspect
-    registry = _load_registry()
-    insp = inspect(engine)
-    existing = insp.get_table_names()
-
-    def count(table: str) -> int:
-        if table not in existing:
-            return 0
-        return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
-
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu"]
-    tables = {
-        "anggaran": "anggaran_maintenance",
-        "pipeline": "pipeline_inspection",
-        "rotor":    "rotor_monitoring",
-        "atg":      "atg_monitoring",
-        "metering": "metering_monitoring",
-        "badactor": "bad_actor_monitoring",
-        "icu":      "icu_monitoring",
-    }
-    return {
-        k: {
-            "rows":    count(tables[k]),
-            "updated": registry.get(k),   # timestamp upload nyata
+        // Pie/doughnut/polarArea — tiap slice warna berbeda
+        if (isPie) {
+            return [{
+                label: chartData.dataset_label || 'Data',
+                data:  chartData.data,
+                backgroundColor: chartData.data.map((_, i) => PALETTE[i % PALETTE.length][0]),
+                borderColor:     chartData.data.map((_, i) => PALETTE[i % PALETTE.length][1]),
+                borderWidth: 1,
+            }];
         }
-        for k in keys
+
+        // Single dataset bar/line
+        const [bg, border] = PALETTE[0];
+        return [{
+            label: chartData.dataset_label || 'Data',
+            data:  chartData.data,
+            backgroundColor: bg,
+            borderColor: border,
+            borderWidth: 1,
+        }];
     }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# AI ENDPOINT — SSE streaming dengan progress real
-# ─────────────────────────────────────────────────────────────────────────────
-def sse(event: str, data: str) -> str:
-    payload = json.dumps({"event": event, "data": data})
-    return f"data: {payload}\n\n"
+    // ── APPEND MESSAGE ─────────────────────────────────────────────────────────
+    function appendMessage(role, text) {
+        const isAI = role === 'ai';
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${isAI ? 'items-start' : 'items-end justify-end'} gap-3 mb-4`;
 
-@app.get("/ask")
-async def ask_ai(question: str):
-    async def generate():
-        try:
-            # ── STEP 1: parsing pertanyaan ──────────────────────────────────
-            yield sse("progress", "parse")
-            await asyncio.sleep(0)          # flush ke client
-
-            # ── STEP 2: menyusun SQL (invoke dijalankan di thread pool) ─────
-            yield sse("progress", "sql")
-            await asyncio.sleep(0)
-
-            loop = asyncio.get_event_loop()
-
-            # Jalankan db_chain.invoke di thread pool agar tidak blokir event loop
-            # Kita inject hook via callback-style dengan flag sederhana
-            sql_done = asyncio.Event()
-            db_done  = asyncio.Event()
-            result_holder = {}
-
-            async def run_chain():
-                # Langchain SQLDatabaseChain: urutan internal:
-                # 1. LLM generate SQL  → kita tandai sql_done setelah ~jeda kecil
-                # 2. DB execute SQL    → kita tandai db_done
-                # 3. LLM generate answer
-                def _invoke():
-                    return db_chain.invoke({"query": question})
-
-                fut = loop.run_in_executor(None, _invoke)
-
-                # Simulasikan sinyal intermediate yang realistis sambil nunggu hasil
-                # (LangChain tidak expose hook per-step secara publik)
-                await asyncio.sleep(2.5)          # estimasi LLM generate SQL selesai
-                sql_done.set()
-
-                await asyncio.sleep(1.0)          # estimasi DB query selesai
-                db_done.set()
-
-                result_holder["result"] = await fut
-
-            task = asyncio.create_task(run_chain())
-
-            # Stream progress saat event terjadi
-            await sql_done.wait()
-            yield sse("progress", "db")
-            await asyncio.sleep(0)
-
-            await db_done.wait()
-            yield sse("progress", "answer")
-            await asyncio.sleep(0)
-
-            await task  # tunggu chain selesai
-
-            raw = result_holder["result"]
-            answer = raw["result"].replace("```sql", "").replace("```", "").strip()
-            yield sse("done", answer)
-
-        except Exception as e:
-            yield sse("error", f"AI Error: {str(e)}")
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",   # penting untuk nginx proxy
+        let finalContent = text;
+        let chartData = null;
+        if (isAI && text.includes('[CHART]')) {
+            const parts = text.split('[CHART]');
+            finalContent = parts[0];
+            try { chartData = JSON.parse(parts[1].split('[/CHART]')[0].trim()); }
+            catch(e) { console.error('Chart parse error:', e); }
         }
-    )
+
+        const canvasId = 'chart-' + Date.now();
+        msgDiv.innerHTML = `
+            ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-robot"></i></div>' : ''}
+            <div class="${isAI ? 'ai-msg bg-white border text-gray-700 ai-bubble' : 'bg-indigo-600 text-white user-bubble'} p-4 shadow-sm text-sm leading-relaxed" style="max-width:80%">
+                <div>${finalContent}</div>
+                ${chartData ? `<div class="mt-4 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200"><canvas id="${canvasId}" style="max-height:300px"></canvas></div>` : ''}
+            </div>
+            ${!isAI ? '<div class="bg-gray-200 text-gray-600 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-user"></i></div>' : ''}
+        `;
+        chatbox.appendChild(msgDiv);
+
+        if (chartData) {
+            const chartType = chartData.type || 'bar';
+            const isPie = ['pie','doughnut','polarArea'].includes(chartType);
+            new Chart(msgDiv.querySelector('canvas'), {
+                type: chartType,
+                data: {
+                    labels: chartData.labels,
+                    datasets: buildDatasets(chartData),
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } },
+                    ...(isPie ? {} : { scales: { y: { beginAtZero: true } } }),
+                }
+            });
+        }
+        chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    // ── LOADING STATUS STEPS ───────────────────────────────────────────────────
+    const STEPS = [
+        { id: 'step-parse',  icon: '🔍', label: 'Memahami pertanyaan...'         },
+        { id: 'step-sql',    icon: '🗃️', label: 'Menyusun query SQL...'          },
+        { id: 'step-db',     icon: '⚡', label: 'Mengambil data dari database...' },
+        { id: 'step-answer', icon: '✍️', label: 'Merangkai jawaban AI...'        },
+    ];
+    const _tickers = {};   // loadingId → intervalId
+
+    function createLoadingBubble(id) {
+        const div = document.createElement('div');
+        div.id = id;
+        div.className = 'flex items-start gap-3 mb-4 loading-bubble';
+        div.innerHTML = `
+            <div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="ai-msg bg-white p-4 shadow-sm border ai-bubble text-sm" style="min-width:270px; max-width:370px">
+                <div class="text-xs font-semibold text-indigo-600 mb-3 flex items-center gap-2">
+                    <div class="spinner"></div> Sedang memproses...
+                </div>
+                <div>
+                    ${STEPS.map(s => `
+                    <div class="step-item pending" id="${id}-${s.id}">
+                        <div class="step-icon">${s.icon}</div>
+                        <span>${s.label}</span>
+                    </div>`).join('')}
+                </div>
+                <div class="mt-3 pt-2 border-t border-dashed border-gray-200 text-xs text-gray-400 flex items-center gap-1">
+                    <i class="fas fa-clock text-xs"></i>
+                    <span id="${id}-total">0.0</span>s berlalu
+                </div>
+            </div>
+        `;
+        chatbox.appendChild(div);
+        chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function startElapsedTicker(id, startTime) {
+        _tickers[id] = setInterval(() => {
+            const el = document.getElementById(`${id}-total`);
+            if (el) el.textContent = ((Date.now() - startTime) / 1000).toFixed(1);
+        }, 100);
+    }
+
+    function stopElapsedTicker(id) {
+        clearInterval(_tickers[id]);
+        delete _tickers[id];
+    }
+
+    function activateStep(id, idx) {
+        // Mark previous as done
+        if (idx > 0) {
+            const prev = STEPS[idx - 1];
+            const prevEl = document.getElementById(`${id}-${prev.id}`);
+            if (prevEl) {
+                prevEl.classList.remove('active', 'pending');
+                prevEl.classList.add('done');
+                const icon = prevEl.querySelector('.step-icon');
+                if (icon) icon.innerHTML = '✓';
+            }
+        }
+        const s  = STEPS[idx];
+        const el = document.getElementById(`${id}-${s.id}`);
+        if (!el) return;
+        el.classList.remove('pending');
+        el.classList.add('active');
+        const icon = el.querySelector('.step-icon');
+        if (icon) icon.innerHTML = '<div class="spinner" style="width:10px;height:10px;border-width:1.5px"></div>';
+        chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function markAllDone(id) {
+        STEPS.forEach(s => {
+            const el = document.getElementById(`${id}-${s.id}`);
+            if (el) {
+                el.classList.remove('active', 'pending');
+                el.classList.add('done');
+                const icon = el.querySelector('.step-icon');
+                if (icon) icon.innerHTML = '✓';
+            }
+        });
+    }
+
+    // ── SEND QUESTION ──────────────────────────────────────────────────────────
+    async function sendQuestion() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if (!text) return;
+        appendMessage('user', text);
+        input.value = '';
+        input.disabled = true;
+        document.querySelector('footer button').disabled = true;
+
+        const loadingId = 'loading-' + Date.now();
+        const startTime = Date.now();
+        createLoadingBubble(loadingId);
+        startElapsedTicker(loadingId, startTime);
+
+        const url = `/ask?question=${encodeURIComponent(text)}`;
+        const es  = new EventSource(url);
+
+        const STEP_MAP = {
+            parse:  0,
+            sql:    1,
+            db:     2,
+            answer: 3,
+        };
+
+        es.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+
+            if (msg.event === 'progress') {
+                const idx = STEP_MAP[msg.data];
+                if (idx !== undefined) activateStep(loadingId, idx);
+
+            } else if (msg.event === 'done') {
+                es.close();
+                stopElapsedTicker(loadingId);
+                markAllDone(loadingId);
+                setTimeout(() => {
+                    document.getElementById(loadingId)?.remove();
+                    appendMessage('ai', msg.data);
+                    input.disabled = false;
+                    document.querySelector('footer button').disabled = false;
+                }, 400);
+
+            } else if (msg.event === 'error') {
+                es.close();
+                stopElapsedTicker(loadingId);
+                document.getElementById(loadingId)?.remove();
+                appendMessage('ai', `<span class='text-red-500'>${msg.data}</span>`);
+                input.disabled = false;
+                document.querySelector('footer button').disabled = false;
+            }
+        };
+
+        es.onerror = () => {
+            es.close();
+            stopElapsedTicker(loadingId);
+            document.getElementById(loadingId)?.remove();
+            appendMessage('ai', "<span class='text-red-500'>Gagal menghubungi server.</span>");
+            input.disabled = false;
+            document.querySelector('footer button').disabled = false;
+        };
+    }
+
+    // ── UPLOAD ─────────────────────────────────────────────────────────────────
+    async function processUpload() {
+        if (!selectedDataType) return alert('Pilih jenis data terlebih dahulu!');
+        const fileInput = document.getElementById('excelFile');
+        if (fileInput.files.length === 0) return alert('Pilih file Excel terlebih dahulu!');
+
+        const btn = document.getElementById('syncBtn');
+        btn.innerText = 'Proses...';
+        btn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('data_type', selectedDataType);
+
+        try {
+            const res = await fetch('/upload-sync', { method: 'POST', body: formData });
+            const data = await res.json();
+            alert(data.message || data.error);
+            fetchTableStats();
+        } catch(e) {
+            alert('Terjadi kesalahan saat upload.');
+        } finally {
+            btn.innerText = 'Mulai Sinkronisasi';
+            btn.disabled = false;
+            document.getElementById('uploadModal').classList.add('hidden');
+        }
+    }
+
+    // Enter key
+    document.getElementById('userInput').addEventListener('keypress', e => {
+        if (e.key === 'Enter') sendQuestion();
+    });
+    </script>
+</body>
+</html>
