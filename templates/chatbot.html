@@ -19,6 +19,9 @@
         .card-option { transition: all .15s; }
         .card-option:hover { transform: translateY(-2px); }
         .card-option.selected { box-shadow: 0 0 0 3px #6366f1; }
+        .card-option.no-data { opacity: 0.55; }
+        .stat-rows { font-size:0.68rem; font-weight:600; color:#6366f1; margin-top:4px; min-height:14px; }
+        .stat-upd  { font-size:0.62rem; color:#cbd5e1; line-height:1.3; min-height:12px; }
 
         /* ── Loading Status Steps ── */
         .loading-bubble { animation: fadeInUp 0.3s ease; }
@@ -101,47 +104,54 @@
 
             <!-- Pilihan kartu -->
             <div class="grid grid-cols-3 gap-2 mb-4">
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('anggaran', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="anggaran" onclick="selectType('anggaran', this)">
                     <div class="text-2xl mb-1">💰</div>
                     <div class="text-xs font-semibold text-gray-700">Anggaran</div>
-                    <div class="text-xs text-gray-400 mt-0.5">Sheet: RU's</div>
+                    <div class="text-xs text-gray-400">Sheet: RU's</div>
+                    <div class="stat-rows" id="stat-rows-anggaran"></div>
+                    <div class="stat-upd"  id="stat-upd-anggaran"></div>
                 </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('pipeline', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="pipeline" onclick="selectType('pipeline', this)">
                     <div class="text-2xl mb-1">🔧</div>
                     <div class="text-xs font-semibold text-gray-700">Pipeline</div>
-                    <div class="text-xs text-gray-400 mt-0.5">pipeline_rag.xlsx</div>
+                    <div class="text-xs text-gray-400">pipeline_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-pipeline"></div>
+                    <div class="stat-upd"  id="stat-upd-pipeline"></div>
                 </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('rotor', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="rotor" onclick="selectType('rotor', this)">
                     <div class="text-2xl mb-1">⚙️</div>
                     <div class="text-xs font-semibold text-gray-700">Rotor</div>
-                    <div class="text-xs text-gray-400 mt-0.5">rotor_rag.xlsx</div>
+                    <div class="text-xs text-gray-400">rotor_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-rotor"></div>
+                    <div class="stat-upd"  id="stat-upd-rotor"></div>
                 </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('atg', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="atg" onclick="selectType('atg', this)">
                     <div class="text-2xl mb-1">🛢️</div>
                     <div class="text-xs font-semibold text-gray-700">ATG</div>
-                    <div class="text-xs text-gray-400 mt-0.5">ATG_rag.xlsx</div>
+                    <div class="text-xs text-gray-400">ATG_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-atg"></div>
+                    <div class="stat-upd"  id="stat-upd-atg"></div>
                 </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('metering', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="metering" onclick="selectType('metering', this)">
                     <div class="text-2xl mb-1">📏</div>
                     <div class="text-xs font-semibold text-gray-700">Metering</div>
-                    <div class="text-xs text-gray-400 mt-0.5">metering_rag.xlsx</div>
+                    <div class="text-xs text-gray-400">metering_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-metering"></div>
+                    <div class="stat-upd"  id="stat-upd-metering"></div>
                 </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('badactor', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="badactor" onclick="selectType('badactor', this)">
                     <div class="text-2xl mb-1">🚨</div>
                     <div class="text-xs font-semibold text-gray-700">Bad Actor</div>
-                    <div class="text-xs text-gray-400 mt-0.5">badactor_rag.xlsx</div>
+                    <div class="text-xs text-gray-400">badactor_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-badactor"></div>
+                    <div class="stat-upd"  id="stat-upd-badactor"></div>
                 </div>
-                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white"
-                    onclick="selectType('icu', this)">
+                <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="icu" onclick="selectType('icu', this)">
                     <div class="text-2xl mb-1">🔴</div>
                     <div class="text-xs font-semibold text-gray-700">ICU</div>
-                    <div class="text-xs text-gray-400 mt-0.5">icu_rag.xlsx</div>
+                    <div class="text-xs text-gray-400">icu_rag.xlsx</div>
+                    <div class="stat-rows" id="stat-rows-icu"></div>
+                    <div class="stat-upd"  id="stat-upd-icu"></div>
                 </div>
             </div>
 
@@ -170,7 +180,26 @@
     }
 
     function toggleModal() {
-        document.getElementById('uploadModal').classList.toggle('hidden');
+        const modal = document.getElementById('uploadModal');
+        modal.classList.toggle('hidden');
+        if (!modal.classList.contains('hidden')) fetchTableStats();
+    }
+
+    async function fetchTableStats() {
+        try {
+            const res = await fetch('/table-stats');
+            const stats = await res.json();
+            Object.entries(stats).forEach(([key, val]) => {
+                const rowsEl = document.getElementById(`stat-rows-${key}`);
+                const updEl  = document.getElementById(`stat-upd-${key}`);
+                const card   = document.querySelector(`[data-type="${key}"]`);
+                if (rowsEl) rowsEl.textContent = val.rows > 0 ? `${val.rows.toLocaleString('id-ID')} baris` : 'Belum ada data';
+                if (updEl)  updEl.textContent  = val.updated ? `Upload: ${val.updated}` : '';
+                if (card) {
+                    card.classList.toggle('no-data', val.rows === 0);
+                }
+            });
+        } catch(e) { console.error('Stats error', e); }
     }
 
     // ── CHART PALETTE ──────────────────────────────────────────────────────────
@@ -421,12 +450,13 @@
             const res = await fetch('/upload-sync', { method: 'POST', body: formData });
             const data = await res.json();
             alert(data.message || data.error);
+            fetchTableStats();
         } catch(e) {
             alert('Terjadi kesalahan saat upload.');
         } finally {
             btn.innerText = 'Mulai Sinkronisasi';
             btn.disabled = false;
-            toggleModal();
+            document.getElementById('uploadModal').classList.add('hidden');
         }
     }
 
