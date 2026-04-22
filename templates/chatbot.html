@@ -346,6 +346,38 @@
     }
 
     // ── APPEND MESSAGE ─────────────────────────────────────────────────────────
+    const TABLE_LABELS = {
+        anggaran: 'Anggaran Maintenance', pipeline: 'Pipeline Inspection',
+        rotor: 'Rotor Monitoring', atg: 'ATG Monitoring',
+        metering: 'Metering Monitoring', badactor: 'Bad Actor Monitoring',
+        icu: 'ICU Monitoring', prokja_atg: 'Program Kerja ATG',
+        paf: 'PAF', zero_clamp: 'Zero Clamp', issue_paf: 'Issue PAF',
+        power_stream: 'Power & Steam', jumlah_eqp: 'Jumlah Equipment UTL',
+        critical_utl: 'Critical Equipment UTL', critical_prim: 'Critical Prim/Sec',
+        mon_operasi: 'Monitoring Operasi', inspection_plan: 'Inspection Plan',
+    };
+
+    function parseDownloadTags(text) {
+        const downloads = [];
+        const clean = text.replace(/\[DOWNLOAD:(\w+)\]/g, (_, key) => {
+            downloads.push(key);
+            return '';
+        }).trim();
+        return { clean, downloads };
+    }
+
+    function downloadBtnHtml(keys) {
+        if (!keys.length) return '';
+        return `<div class="mt-3 flex flex-wrap gap-2">` +
+            keys.map(k => `
+            <a href="/export?table=${k}" target="_blank"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg border border-indigo-200 transition">
+                <i class="fas fa-file-excel text-green-600"></i>
+                Download ${TABLE_LABELS[k] || k}
+            </a>`).join('') +
+        `</div>`;
+    }
+
     function appendMessage(role, text) {
         const isAI = role === 'ai';
         const msgDiv = document.createElement('div');
@@ -353,11 +385,21 @@
 
         let finalContent = text;
         let chartData = null;
-        if (isAI && text.includes('[CHART]')) {
-            const parts = text.split('[CHART]');
-            finalContent = parts[0];
-            try { chartData = JSON.parse(parts[1].split('[/CHART]')[0].trim()); }
-            catch(e) { console.error('Chart parse error:', e); }
+        let downloadKeys = [];
+
+        if (isAI) {
+            // Parse download tags
+            const parsed = parseDownloadTags(finalContent);
+            finalContent = parsed.clean;
+            downloadKeys = parsed.downloads;
+
+            // Parse chart
+            if (finalContent.includes('[CHART]')) {
+                const parts = finalContent.split('[CHART]');
+                finalContent = parts[0];
+                try { chartData = JSON.parse(parts[1].split('[/CHART]')[0].trim()); }
+                catch(e) { console.error('Chart parse error:', e); }
+            }
         }
 
         const canvasId = 'chart-' + Date.now();
@@ -365,6 +407,7 @@
             ${isAI ? '<div class="bg-indigo-100 text-indigo-700 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-robot"></i></div>' : ''}
             <div class="${isAI ? 'ai-msg bg-white border text-gray-700 ai-bubble' : 'bg-indigo-600 text-white user-bubble'} p-4 shadow-sm text-sm leading-relaxed" style="max-width:80%">
                 <div>${finalContent}</div>
+                ${downloadBtnHtml(downloadKeys)}
                 ${chartData ? `<div class="mt-4 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200"><canvas id="${canvasId}" style="max-height:300px"></canvas></div>` : ''}
             </div>
             ${!isAI ? '<div class="bg-gray-200 text-gray-600 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-user"></i></div>' : ''}

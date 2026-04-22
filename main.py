@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import asyncio
 import pandas as pd
@@ -7,6 +8,7 @@ from fastapi import FastAPI, Depends, Request, UploadFile, File, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from database import engine, get_db, DATABASE_URL
 from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan
 from langchain_openai import ChatOpenAI
@@ -46,7 +48,7 @@ llm = ChatOpenAI(
     temperature=0.7
 )
 
-db_engine = SQLDatabase.from_uri(DATABASE_URL)
+db_engine = SQLDatabase.from_uri(DATABASE_URL, sample_rows_in_table_info=0)
 
 CUSTOM_PROMPT = """You are a PostgreSQL expert and a helpful AI Assistant for a refinery company.
 Given an input question, create a syntactically correct PostgreSQL query to run.
@@ -65,7 +67,16 @@ ATURAN QUERY SQL:
 - Selalu gunakan NULLIF(kolom_penyebut, 0) untuk menghindari division by zero.
 - Gunakan ROUND(nilai::numeric, 2) untuk pembulatan.
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
-- Untuk bad_actor_monitoring: kolom utama adalah ru, tag_number, status, problem, action_plan, progress, target_date.
+- PENTING: Jangan pernah query SELECT * tanpa LIMIT. Selalu gunakan agregasi, filter, atau LIMIT 20.
+- Jika pertanyaan meminta "tampilkan semua" data ribuan baris, buat RINGKASAN/AGREGASI saja lalu tawarkan download dengan format: [DOWNLOAD:key_tabel] — contoh: [DOWNLOAD:pipeline] atau [DOWNLOAD:atg]. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan.
+- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut.
+- DETEKSI PERTANYAAN TIDAK PRODUKTIF: Jika user meminta salah satu dari berikut, JANGAN query — langsung tolak dengan sopan dan arahkan ke pertanyaan analisis yang lebih tepat:
+  * "tampilkan semua", "list semua", "show all", "lihat semua", "ceritakan semua"
+  * "tampilkan seluruh isi tabel", "dump data", "export semua"
+  * Pertanyaan yang jelas akan menghasilkan ribuan baris teks panjang (action plan, progress, prokja, issue, mitigasi)
+  * Pertanyaan di luar konteks maintenance kilang (cuaca, berita, pengetahuan umum, coding, dll)
+  Untuk pertanyaan view massal → tawarkan [DOWNLOAD:key] dan berikan ringkasan agregasi saja.
+  Untuk pertanyaan di luar konteks → jawab: "Maaf, saya hanya dapat membantu analisis data maintenance kilang."
 - Untuk icu_monitoring: kolom utama adalah ru, icu_status (Medium/High/Critical/Low), tag_no, issue, mitigation, permanent_solution, progress, target_closed, report_date.
 - Untuk program_kerja_atg: kolom utama adalah refinery_unit, type, atg_eksisting, program_2024, prokja (progress), action_plan_category, target, month_update.
 - Untuk paf: Plant Availability Factor — kolom type, ru, target_realisasi, value (angka PAF), plan_unplan, month.
@@ -501,6 +512,50 @@ def sync_prokja_atg(file_location: str, db: Session):
     return {"message": f"✅ Program Kerja ATG berhasil diupdate! ({count} records)"}
 
 # ─────────────────────────────────────────────────────────────────────────────
+# EXPORT ENDPOINT — Download tabel sebagai Excel
+# ─────────────────────────────────────────────────────────────────────────────
+EXPORT_TABLES = {
+    "anggaran":        ("anggaran_maintenance",      "Anggaran Maintenance"),
+    "pipeline":        ("pipeline_inspection",        "Pipeline Inspection"),
+    "rotor":           ("rotor_monitoring",           "Rotor Monitoring"),
+    "atg":             ("atg_monitoring",             "ATG Monitoring"),
+    "metering":        ("metering_monitoring",        "Metering Monitoring"),
+    "badactor":        ("bad_actor_monitoring",       "Bad Actor Monitoring"),
+    "icu":             ("icu_monitoring",             "ICU Monitoring"),
+    "prokja_atg":      ("program_kerja_atg",          "Program Kerja ATG"),
+    "paf":             ("paf",                        "PAF"),
+    "zero_clamp":      ("zero_clamp",                 "Zero Clamp"),
+    "issue_paf":       ("issue_paf",                  "Issue PAF"),
+    "power_stream":    ("power_stream",               "Power & Steam"),
+    "jumlah_eqp":      ("jumlah_eqp_utl",             "Jumlah Equipment UTL"),
+    "critical_utl":    ("critical_eqp_utl",           "Critical Equipment UTL"),
+    "critical_prim":   ("critical_eqp_prim_sec",      "Critical Equipment Prim Sec"),
+    "mon_operasi":     ("monitoring_operasi",          "Monitoring Operasi"),
+    "inspection_plan": ("inspection_plan",             "Inspection Plan"),
+}
+
+@app.get("/export")
+def export_table(table: str, db: Session = Depends(get_db)):
+    if table not in EXPORT_TABLES:
+        return {"error": f"Tabel tidak dikenal: {table}"}
+    table_name, label = EXPORT_TABLES[table]
+    try:
+        df = pd.read_sql(text(f"SELECT * FROM {table_name}"), db.bind)
+        df = df.drop(columns=["id"], errors="ignore")
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name=label[:31])
+        output.seek(0)
+        filename = f"{table_name}_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        return StreamingResponse(
+            output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        return {"error": str(e)}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # TABLE STATS ENDPOINT
 # ─────────────────────────────────────────────────────────────────────────────
 @app.get("/table-stats")
@@ -552,6 +607,58 @@ def sse(event: str, data: str) -> str:
 
 @app.get("/ask")
 async def ask_ai(question: str):
+    # ── Pre-filter: tangkap pertanyaan di luar konteks sebelum buang token ke LLM
+    q_lower = question.lower()
+
+    OUT_OF_SCOPE = [
+        "cuaca", "berita", "news", "coding", "resep", "masak", "film", "musik",
+        "olahraga", "politik", "saham", "crypto", "bitcoin", "translate", "terjemahkan",
+        "siapa presiden", "capital of", "ibukota",
+    ]
+    DUMP_KEYWORDS = [
+        "tampilkan semua", "lihat semua", "show all", "list semua", "dump",
+        "seluruh isi", "semua baris", "semua data", "semua isi", "semua record",
+        "export semua", "ceritakan semua", "semua action plan", "semua progress",
+        "semua issue", "semua mitigasi", "semua prokja",
+    ]
+
+    if any(k in q_lower for k in OUT_OF_SCOPE):
+        async def out_of_scope():
+            yield sse("progress", "parse")
+            await asyncio.sleep(0.3)
+            yield sse("done", "⚠️ Maaf, saya hanya dapat membantu <b>analisis data maintenance kilang</b>. Silakan ajukan pertanyaan yang berkaitan dengan data yang tersedia.")
+        return StreamingResponse(out_of_scope(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    if any(k in q_lower for k in DUMP_KEYWORDS):
+        # Deteksi tabel mana yang dimaksud
+        table_hints = {
+            "pipeline": "pipeline", "atg": "atg", "metering": "metering",
+            "rotor": "rotor", "anggaran": "anggaran", "bad actor": "badactor",
+            "icu": "icu", "prokja": "prokja_atg", "paf": "paf",
+            "zero clamp": "zero_clamp", "issue paf": "issue_paf",
+            "power": "power_stream", "steam": "power_stream",
+            "jumlah eqp": "jumlah_eqp", "critical utl": "critical_utl",
+            "critical prim": "critical_prim", "monitoring operasi": "mon_operasi",
+            "inspection": "inspection_plan",
+        }
+        matched_key = next((v for k, v in table_hints.items() if k in q_lower), None)
+        download_btn = f"[DOWNLOAD:{matched_key}]" if matched_key else ""
+
+        async def dump_guard():
+            yield sse("progress", "parse")
+            await asyncio.sleep(0.3)
+            yield sse("done",
+                f"📊 Permintaan menampilkan seluruh data dalam chat akan sangat panjang dan tidak efisien. "
+                f"Saya sarankan dua opsi:<br><br>"
+                f"<b>1. Download Excel langsung</b> — klik tombol di bawah untuk mengunduh data lengkap {download_btn}<br><br>"
+                f"<b>2. Tanyakan analisis spesifik</b>, misalnya:<br>"
+                f"<ul><li>Berapa jumlah per RU?</li>"
+                f"<li>Mana yang statusnya bermasalah?</li>"
+                f"<li>Mana yang sudah melewati target date?</li></ul>"
+            )
+        return StreamingResponse(dump_guard(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     async def generate():
         try:
             # ── STEP 1: parsing pertanyaan ──────────────────────────────────
