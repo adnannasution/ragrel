@@ -40,9 +40,12 @@ STRUKTUR TABEL TERSEDIA:
 {table_info}
 
 ATURAN QUERY SQL:
+- Pilih tabel yang paling relevan berdasarkan nama tabel dan kolom yang tersedia.
+- Jika tabel relevan kosong, jawab: "Data belum tersedia, silakan upload datanya terlebih dahulu."
+- Jangan query tabel yang tidak relevan dengan pertanyaan.
+- Kolom RU antar tabel mungkin berbeda format, gunakan ILIKE '%RU II%' saat JOIN.
 - Selalu gunakan NULLIF(kolom_penyebut, 0) untuk menghindari division by zero.
 - Gunakan ROUND(nilai::numeric, 2) untuk pembulatan.
-- Pastikan query kompatibel dengan PostgreSQL.
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
 
 ATURAN FORMAT JAWABAN:
