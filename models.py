@@ -74,7 +74,39 @@ class ATGMonitoring(Base):
     status_rtl              = Column(String(50))
     month_update            = Column(String(50))
 
-# ─── 5. METERING MONITORING ──────────────────────────────────────────────────
+# ─── 5a. BAD ACTOR MONITORING ────────────────────────────────────────────────
+class BadActorMonitoring(Base):
+    __tablename__ = "bad_actor_monitoring"
+    id                    = Column(Integer, primary_key=True, index=True)
+    ru                    = Column(String(50))
+    tag_number            = Column(String(255))
+    status                = Column(String(100))
+    problem               = Column(Text)
+    action_plan           = Column(Text)
+    category_action_plan  = Column(String(100))
+    progress              = Column(Text)
+    target_date           = Column(String(50))
+    periode               = Column(String(50))
+    action_plan_category  = Column(String(100))
+    external_resource     = Column(String(10))
+    no_irkap              = Column(Text)
+    action_plan_remark    = Column(Text)
+
+# ─── 5b. ICU (INTEGRITY CONCERN UNIT) ────────────────────────────────────────
+class ICUMonitoring(Base):
+    __tablename__ = "icu_monitoring"
+    id              = Column(Integer, primary_key=True, index=True)
+    update_date     = Column(String(50))
+    ru              = Column(String(50))
+    severity        = Column(String(50))
+    equipment       = Column(Text)
+    problem         = Column(Text)
+    action_plan     = Column(Text)
+    no_irkap        = Column(Text)
+    progress        = Column(Text)
+    target_year     = Column(String(20))
+
+# ─── 6. METERING MONITORING ──────────────────────────────────────────────────
 class MeteringMonitoring(Base):
     __tablename__ = "metering_monitoring"
     id                    = Column(Integer, primary_key=True, index=True)
