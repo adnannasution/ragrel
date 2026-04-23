@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -89,6 +89,16 @@ ATURAN QUERY SQL:
 - Untuk critical_eqp_prim_sec: critical equipment primary & secondary — kolom refinery_unit, unit_proses, equipment, highlight_issue, corrective_action, mitigasi_action.
 - Untuk monitoring_operasi: monitoring kapasitas operasi unit proses — kolom refinery_unit, unit_proses, unit, design, minimal_capacity, plant_readiness, actual, target_sts.
 - Untuk inspection_plan: rencana & realisasi inspeksi equipment — kolom refinery_unit, area, tag_no_ln, type_equipment, type_inspection, due_date, plan_date, actual_date, result_remaining_life, grand_result.
+- Untuk tkdn: Tingkat Kandungan Dalam Negeri — kolom refinery_unit, bulan, nominal, kdn, persentase, tahun.
+- Untuk rcps_rekomendasi: rekomendasi dari RCPS — kolom kilang, rcps_no, judul_rcps, rekomendasi, traffic, pic, target, remark.
+- Untuk rcps: daftar RCPS — kolom kilang, traffic, sum_of_progress, disiplin, judul_rcps, rcps_no, criticallity.
+- Untuk boc: Basis of Comparison equipment — kolom ru, area, unit, equipment, status, frequency, running_hours, mttr, mtbf, hasil.
+- Untuk readiness_jetty: kesiapan operasional jetty — kolom refinery_unit, tag_no, status_operation, status_tuks, expired_tuks, status_ijin_ops, status_isps, status_struktur, status_trestle, status_mla, status_fire_protection, month_update.
+- Untuk workplan_jetty: workplan perbaikan item jetty — kolom refinery_unit, tag_no, item, status_item, remark, rtl_action_plan, target, status_rtl, month_update.
+- Untuk readiness_tank: kesiapan operasional tangki — kolom refinery_unit, tag_number, type_tangki, service_tangki, prioritas, status_operational, atg_certification_validity, status_coi, status_atg, status_grounding, status_shell_course, status_roof, status_cathodic, month_update.
+- Untuk workplan_tank: workplan perbaikan tangki — kolom unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
+- Untuk readiness_spm: kesiapan operasional SPM — kolom refinery_unit, tag_no, status_operation, status_laik_operasi, expired_laik_operasi, status_ijin_spl, status_mbc, status_lds, status_mooring_hawser, status_floating_hose, status_cathodic_spl, month_update.
+- Untuk spm_workplan: workplan perbaikan SPM — kolom refinery_unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -210,6 +220,16 @@ async def upload_sync(
             "critical_prim":  sync_critical_prim,
             "mon_operasi":    sync_mon_operasi,
             "inspection_plan": sync_inspection_plan,
+            "tkdn":           sync_tkdn,
+            "rcps_rek":       sync_rcps_rekomendasi,
+            "rcps":           sync_rcps,
+            "boc":            sync_boc,
+            "readiness_jetty": sync_readiness_jetty,
+            "workplan_jetty":  sync_workplan_jetty,
+            "readiness_tank":  sync_readiness_tank,
+            "workplan_tank":   sync_workplan_tank,
+            "readiness_spm":   sync_readiness_spm,
+            "spm_workplan":    sync_spm_workplan,
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -591,6 +611,16 @@ EXPORT_TABLES = {
     "critical_prim":   ("critical_eqp_prim_sec",      "Critical Equipment Prim Sec"),
     "mon_operasi":     ("monitoring_operasi",          "Monitoring Operasi"),
     "inspection_plan": ("inspection_plan",             "Inspection Plan"),
+    "tkdn":            ("tkdn",                       "TKDN"),
+    "rcps_rek":        ("rcps_rekomendasi",            "RCPS Rekomendasi"),
+    "rcps":            ("rcps",                        "RCPS"),
+    "boc":             ("boc",                         "BOC"),
+    "readiness_jetty": ("readiness_jetty",             "Readiness Jetty"),
+    "workplan_jetty":  ("workplan_jetty",              "Workplan Jetty"),
+    "readiness_tank":  ("readiness_tank",              "Readiness Tank"),
+    "workplan_tank":   ("workplan_tank",               "Workplan Tank"),
+    "readiness_spm":   ("readiness_spm",               "Readiness SPM"),
+    "spm_workplan":    ("spm_workplan",                "SPM Workplan"),
 }
 
 @app.get("/export")
@@ -629,7 +659,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -648,6 +678,16 @@ def table_stats(db: Session = Depends(get_db)):
         "critical_prim":"critical_eqp_prim_sec",
         "mon_operasi": "monitoring_operasi",
         "inspection_plan": "inspection_plan",
+        "tkdn":           "tkdn",
+        "rcps_rek":       "rcps_rekomendasi",
+        "rcps":           "rcps",
+        "boc":            "boc",
+        "readiness_jetty": "readiness_jetty",
+        "workplan_jetty":  "workplan_jetty",
+        "readiness_tank":  "readiness_tank",
+        "workplan_tank":   "workplan_tank",
+        "readiness_spm":   "readiness_spm",
+        "spm_workplan":    "spm_workplan",
     }
     return {
         k: {
@@ -1018,3 +1058,269 @@ def sync_inspection_plan(file_location: str, db: Session):
         count += 1
     db.commit()
     return {"message": f"✅ Inspection Plan berhasil diupdate! ({count} records)"}
+
+def sync_tkdn(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(TKDN).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(TKDN(
+            refinery_unit = _safe(row.get('Refinery Unit')),
+            bulan         = _safe(row.get('BULAN')),
+            nominal       = _to_float(row.get('NOMINAL')),
+            kdn           = _to_float(row.get('KDN')),
+            persentase    = _to_float(row.get('PERSENTASE')),
+            tahun         = _to_int(row.get('TAHUN')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ TKDN berhasil diupdate! ({count} records)"}
+
+def sync_rcps_rekomendasi(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(RCPSRekomendasi).delete()
+    count = 0
+    for _, row in df.iterrows():
+        target = row.get('Target')
+        db.add(RCPSRekomendasi(
+            no                      = _to_int(row.get('NO')),
+            kilang                  = _safe(row.get('Kilang')),
+            rcps                    = _safe(row.get('RCPS')),
+            rcps_no                 = _safe(row.get('RCPS No')),
+            judul_rcps              = _safe(row.get('Judul RCPS')),
+            link_rcps               = _safe(row.get('Link RCPS')),
+            rekomendasi             = _safe(row.get('Recomendation')),
+            description             = _safe(row.get('Description')),
+            traffic                 = _safe(row.get('Traffic')),
+            pic                     = _safe(row.get('PIC')),
+            target                  = _to_date_str(target) if pd.notna(target) and hasattr(target, 'date') else _safe(target),
+            recommendation_category = _safe(row.get('Recommendation Category')),
+            external_resource       = _safe(row.get('Recommendation Need External Resource?')),
+            no_irkap                = _safe(row.get('No. IRKAP')),
+            remark                  = _safe(row.get('Remark')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ RCPS Rekomendasi berhasil diupdate! ({count} records)"}
+
+def sync_rcps(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(RCPS).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(RCPS(
+            kilang          = _safe(row.get('Kilang')),
+            traffic         = _safe(row.get('Traffic')),
+            sum_of_progress = _to_int(row.get('Sum of Progress')),
+            link            = _safe(row.get('link')),
+            disiplin        = _safe(row.get('Disiplin')),
+            date            = _to_date_str(row.get('Date 2')),
+            judul_rcps      = _safe(row.get('Judul RCPS')),
+            rcps_no         = _safe(row.get('RCPS No')),
+            criticallity    = _safe(row.get('Criticallity')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ RCPS berhasil diupdate! ({count} records)"}
+
+def sync_boc(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(BOC).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(BOC(
+            ru             = _safe(row.get('RU_Sheet1')),
+            area           = _safe(row.get('Area')),
+            unit           = _safe(row.get('Unit')),
+            equipment      = _safe(row.get('Equipment')),
+            grup_equipment = _safe(row.get('Grup_Equipment')),
+            qr_code        = _safe(row.get('QRCode')),
+            rfid           = _safe(row.get('RFID')),
+            status         = _safe(row.get('Status')),
+            frequency      = _to_int(row.get('Frequency')),
+            running_hours  = _to_float(row.get('Running Hours')),
+            mttr           = _to_float(row.get('MTTR')),
+            mtbf           = _to_float(row.get('MTBF')),
+            hasil          = _safe(row.get('hasil')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ BOC berhasil diupdate! ({count} records)"}
+
+def sync_readiness_jetty(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(ReadinessJetty).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(ReadinessJetty(
+            refinery_unit          = _safe(row.get('Refinery Unit')),
+            area                   = _safe(row.get('Area')),
+            unit                   = _safe(row.get('Unit')),
+            tag_no                 = _safe(row.get('Tag No')),
+            status_operation       = _safe(row.get('Status Operation')),
+            no_tuks                = _safe(row.get('Nomor Surat TUKS')),
+            expired_tuks           = _to_date_str(row.get('TUKS (Expired Date)')),
+            status_tuks            = _safe(row.get('Status TUKS')),
+            no_ijin_ops            = _safe(row.get('Nomor Surat pemberian ijin OPS')),
+            expired_ijin_ops       = _to_date_str(row.get('Surat pemberian ijin OPS (Expired Date)')),
+            status_ijin_ops        = _safe(row.get('Status Surat pemberian ijin OPS')),
+            no_isps                = _safe(row.get('Nomor Surat ISPS code')),
+            expired_isps           = _to_date_str(row.get('Surat ISPS code (Expired Date)')),
+            status_isps            = _safe(row.get('Status Surat ISPS code')),
+            status_struktur        = _safe(row.get('Status Struktur jetty head')),
+            remark_struktur        = _safe(row.get('Remark Struktur jetty head')),
+            status_trestle         = _safe(row.get('Status Trestle')),
+            remark_trestle         = _safe(row.get('Remark Trestle')),
+            status_mla             = _safe(row.get('Status Marine loading arm/cargo hose')),
+            remark_mla             = _safe(row.get('Remark Marine loading arm/cargo hose')),
+            status_fire_protection = _safe(row.get('Status Fire protection/ fire hydrant')),
+            remark_fire_protection = _safe(row.get('Remark Fire protection/ fire hydrant')),
+            month_update           = _to_date_str(row.get('Month Update')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Readiness Jetty berhasil diupdate! ({count} records)"}
+
+def sync_workplan_jetty(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(WorkplanJetty).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(WorkplanJetty(
+            refinery_unit        = _safe(row.get('Refinery Unit')),
+            area                 = _safe(row.get('Area')),
+            unit                 = _safe(row.get('Unit')),
+            tag_no               = _safe(row.get('Tag No')),
+            item                 = _safe(row.get('Item')),
+            status_item          = _safe(row.get('Status Item')),
+            remark               = _safe(row.get('Remark/Kondisi Item')),
+            rtl_action_plan      = _safe(row.get('RTL/Action Plan')),
+            action_plan_category = _safe(row.get('Action Plan Category')),
+            external_resource    = _safe(row.get('External Resource')),
+            no_irkap             = _safe(row.get('NO.IRKAP')),
+            target               = _to_date_str(row.get('Target')),
+            keterangan           = _safe(row.get('Keterangan')),
+            status_rtl           = _safe(row.get('Status RTL')),
+            month_update         = _to_date_str(row.get('Month Update')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Workplan Jetty berhasil diupdate! ({count} records)"}
+
+def sync_readiness_tank(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(ReadinessTank).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(ReadinessTank(
+            refinery_unit             = _safe(row.get('Refinery Unit')),
+            area                      = _safe(row.get('Area')),
+            unit                      = _safe(row.get('Unit')),
+            tag_number                = _safe(row.get('Tag Number')),
+            type_tangki               = _safe(row.get('Type Tangki')),
+            service_tangki            = _safe(row.get('Service Tangki')),
+            prioritas                 = _safe(row.get('Prioritas')),
+            status_operational        = _safe(row.get('Status Operational Tangki')),
+            cert_no_atg               = _safe(row.get('Cert No ATG')),
+            date_expired_atg          = _to_date_str(row.get('Date Expired ATG')),
+            atg_certification_validity= _safe(row.get('ATG Certification Validity')),
+            coi_date_expired          = _to_date_str(row.get('COI (Date Expired)')),
+            no_coi                    = _safe(row.get('No COI')),
+            status_coi                = _safe(row.get('Status COI')),
+            internal_inspection       = _safe(row.get('Internal Inspection')),
+            plan_internal_inspection  = _to_date_str(row.get('Plan Internal Inspection ')),
+            status_atg                = _safe(row.get('Status ATG')),
+            remark_atg                = _safe(row.get('Remark ATG')),
+            status_grounding          = _safe(row.get('Status Grounding')),
+            status_shell_course       = _safe(row.get('Status Shell Course')),
+            remark_shell_course       = _safe(row.get('Remark Shell Course')),
+            status_roof               = _safe(row.get('Status Roof (cone/Floating)')),
+            remark_roof               = _safe(row.get('Remark Roof (cone/Floating)')),
+            status_cathodic           = _safe(row.get('Status Cathodic Protection')),
+            remark_cathodic           = _safe(row.get('Remark Cathodic Protection')),
+            month_update              = _to_date_str(row.get('Month Update')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Readiness Tank berhasil diupdate! ({count} records)"}
+
+def sync_workplan_tank(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(WorkplanTank).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(WorkplanTank(
+            unit                 = _safe(row.get('Unit')),
+            tag_no               = _safe(row.get('Tag No')),
+            item                 = _safe(row.get('Item')),
+            remark               = _safe(row.get('Remark/Kondisi Item')),
+            rtl_action_plan      = _safe(row.get('RTL/Action Plan')),
+            action_plan_category = _safe(row.get('Action Plan Category')),
+            external_resource    = _safe(row.get('External Resource')),
+            no_irkap             = _safe(row.get('NO.IRKAP')),
+            target               = _to_date_str(row.get('Target')),
+            keterangan           = _safe(row.get('Keterangan')),
+            status_rtl           = _safe(row.get('Status RTL')),
+            month_update         = _to_date_str(row.get('Month Update')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Workplan Tank berhasil diupdate! ({count} records)"}
+
+def sync_readiness_spm(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(ReadinessSPM).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(ReadinessSPM(
+            refinery_unit         = _safe(row.get('Refinery Unit')),
+            area                  = _safe(row.get('Area')),
+            unit                  = _safe(row.get('Unit')),
+            tag_no                = _safe(row.get('Tag No')),
+            status_operation      = _safe(row.get('Status Operation')),
+            no_laik_operasi       = _safe(row.get('Nomor Persetujuan Laik Operasi (MIGAS)')),
+            expired_laik_operasi  = _to_date_str(row.get('Expired Persetujuan Laik Operasi (MIGAS)')),
+            status_laik_operasi   = _safe(row.get('Status Persetujuan Laik Operasi (MIGAS)')),
+            no_ijin_spl           = _safe(row.get('Nomor Ijin Pengoperasian SPL')),
+            expired_ijin_spl      = _to_date_str(row.get('Ijin Pengoperasian SPL Expired Date')),
+            status_ijin_spl       = _safe(row.get('Status Ijin Pengoperasian SPL')),
+            status_mbc            = _safe(row.get('Status MBC (Marine Breakway Coupling)')),
+            remark_mbc            = _safe(row.get('Remark MBC (Marine Breakway Coupling)')),
+            status_lds            = _safe(row.get('Status Leak Detection System (LDS)')),
+            remark_lds            = _safe(row.get('Remark Leak Detection System (LDS)')),
+            status_mooring_hawser = _safe(row.get('Status Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
+            remark_mooring_hawser = _safe(row.get('Remark Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
+            status_floating_hose  = _safe(row.get('Status Floating Hose  System')),
+            remark_floating_hose  = _safe(row.get('Remark Floating Hose  System')),
+            status_cathodic_spl   = _safe(row.get('Status Cathodic Protection (SPL)')),
+            status_cathodic_spm   = _safe(row.get('Status Cathodic Protection (SPM)')),
+            month_update          = _to_date_str(row.get('Month Update')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ Readiness SPM berhasil diupdate! ({count} records)"}
+
+def sync_spm_workplan(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name=0, header=0)
+    db.query(SPMWorkplan).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(SPMWorkplan(
+            refinery_unit        = _safe(row.get('Refinery Unit')),
+            area                 = _safe(row.get('Area')),
+            unit                 = _safe(row.get('Unit')),
+            tag_no               = _safe(row.get('Tag No')),
+            item                 = _safe(row.get('Item')),
+            remark               = _safe(row.get('Remark/Kondisi Item')),
+            rtl_action_plan      = _safe(row.get('RTL/Action Plan')),
+            action_plan_category = _safe(row.get('Action Plan Category')),
+            external_resource    = _safe(row.get('External Resource')),
+            no_irkap             = _safe(row.get('NO.IRKAP')),
+            target               = _to_date_str(row.get('Target')),
+            keterangan           = _safe(row.get('Keterangan')),
+            status_rtl           = _safe(row.get('Status RTL')),
+            month_update         = _to_date_str(row.get('Month Update')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ SPM Workplan berhasil diupdate! ({count} records)"}

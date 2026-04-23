@@ -93,7 +93,17 @@
                 🚧 <b>Critical Eqp UTL</b> — Critical equipment utility & mitigasi<br>
                 🔴 <b>Critical Prim/Sec</b> — Critical equipment primary & secondary<br>
                 📊 <b>Monitoring Operasi</b> — Kapasitas & aktual operasi unit proses<br>
-                🗂️ <b>Inspection Plan</b> — Rencana & realisasi inspeksi equipment<br><br>
+                🗂️ <b>Inspection Plan</b> — Rencana & realisasi inspeksi equipment<br>
+                🇮🇩 <b>TKDN</b> — Tingkat Kandungan Dalam Negeri per RU<br>
+                📝 <b>RCPS Rekomendasi</b> — Rekomendasi tindak lanjut RCPS<br>
+                🔍 <b>RCPS</b> — Daftar Root Cause Problem Solving<br>
+                ⚖️ <b>BOC</b> — Basis of Comparison equipment (MTTR, MTBF, status)<br>
+                ⚓ <b>Readiness Jetty</b> — Kesiapan operasional & sertifikasi jetty<br>
+                🚢 <b>Workplan Jetty</b> — Workplan perbaikan item jetty<br>
+                🛢️ <b>Readiness Tank</b> — Kesiapan operasional tangki & sertifikasi<br>
+                🗒️ <b>Workplan Tank</b> — Workplan perbaikan tangki<br>
+                🌊 <b>Readiness SPM</b> — Kesiapan operasional SPM & izin<br>
+                🔧 <b>SPM Workplan</b> — Workplan perbaikan SPM<br><br>
                 Silakan ajukan pertanyaan, termasuk yang <b>lintas tabel</b>.
             </div>
         </div>
@@ -228,6 +238,66 @@
                         <div class="text-xs font-semibold text-gray-700">Inspection Plan</div>
                         <div class="stat-rows" id="stat-rows-inspection_plan"></div>
                         <div class="stat-upd"  id="stat-upd-inspection_plan"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="tkdn" onclick="selectType('tkdn', this)">
+                        <div class="text-xl mb-1">🇮🇩</div>
+                        <div class="text-xs font-semibold text-gray-700">TKDN</div>
+                        <div class="stat-rows" id="stat-rows-tkdn"></div>
+                        <div class="stat-upd"  id="stat-upd-tkdn"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="rcps_rek" onclick="selectType('rcps_rek', this)">
+                        <div class="text-xl mb-1">📝</div>
+                        <div class="text-xs font-semibold text-gray-700">RCPS Rekomendasi</div>
+                        <div class="stat-rows" id="stat-rows-rcps_rek"></div>
+                        <div class="stat-upd"  id="stat-upd-rcps_rek"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="rcps" onclick="selectType('rcps', this)">
+                        <div class="text-xl mb-1">🔍</div>
+                        <div class="text-xs font-semibold text-gray-700">RCPS</div>
+                        <div class="stat-rows" id="stat-rows-rcps"></div>
+                        <div class="stat-upd"  id="stat-upd-rcps"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="boc" onclick="selectType('boc', this)">
+                        <div class="text-xl mb-1">⚖️</div>
+                        <div class="text-xs font-semibold text-gray-700">BOC</div>
+                        <div class="stat-rows" id="stat-rows-boc"></div>
+                        <div class="stat-upd"  id="stat-upd-boc"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="readiness_jetty" onclick="selectType('readiness_jetty', this)">
+                        <div class="text-xl mb-1">⚓</div>
+                        <div class="text-xs font-semibold text-gray-700">Readiness Jetty</div>
+                        <div class="stat-rows" id="stat-rows-readiness_jetty"></div>
+                        <div class="stat-upd"  id="stat-upd-readiness_jetty"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="workplan_jetty" onclick="selectType('workplan_jetty', this)">
+                        <div class="text-xl mb-1">🚢</div>
+                        <div class="text-xs font-semibold text-gray-700">Workplan Jetty</div>
+                        <div class="stat-rows" id="stat-rows-workplan_jetty"></div>
+                        <div class="stat-upd"  id="stat-upd-workplan_jetty"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="readiness_tank" onclick="selectType('readiness_tank', this)">
+                        <div class="text-xl mb-1">🛢️</div>
+                        <div class="text-xs font-semibold text-gray-700">Readiness Tank</div>
+                        <div class="stat-rows" id="stat-rows-readiness_tank"></div>
+                        <div class="stat-upd"  id="stat-upd-readiness_tank"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="workplan_tank" onclick="selectType('workplan_tank', this)">
+                        <div class="text-xl mb-1">🗒️</div>
+                        <div class="text-xs font-semibold text-gray-700">Workplan Tank</div>
+                        <div class="stat-rows" id="stat-rows-workplan_tank"></div>
+                        <div class="stat-upd"  id="stat-upd-workplan_tank"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="readiness_spm" onclick="selectType('readiness_spm', this)">
+                        <div class="text-xl mb-1">🌊</div>
+                        <div class="text-xs font-semibold text-gray-700">Readiness SPM</div>
+                        <div class="stat-rows" id="stat-rows-readiness_spm"></div>
+                        <div class="stat-upd"  id="stat-upd-readiness_spm"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="spm_workplan" onclick="selectType('spm_workplan', this)">
+                        <div class="text-xl mb-1">🔧</div>
+                        <div class="text-xs font-semibold text-gray-700">SPM Workplan</div>
+                        <div class="stat-rows" id="stat-rows-spm_workplan"></div>
+                        <div class="stat-upd"  id="stat-upd-spm_workplan"></div>
                     </div>
                 </div>
 

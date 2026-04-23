@@ -307,3 +307,208 @@ class InspectionPlan(Base):
     visual_lainnya        = Column(Text)
     result_lainnya        = Column(Text)
     grand_result          = Column(Text)
+
+# ─── 17. TKDN ─────────────────────────────────────────────────────────────────
+class TKDN(Base):
+    __tablename__ = "tkdn"
+    id            = Column(Integer, primary_key=True, index=True)
+    refinery_unit = Column(Text)
+    bulan         = Column(Text)
+    nominal       = Column(Float)
+    kdn           = Column(Float)
+    persentase    = Column(Float)
+    tahun         = Column(Integer)
+
+# ─── 18. RCPS REKOMENDASI ─────────────────────────────────────────────────────
+class RCPSRekomendasi(Base):
+    __tablename__ = "rcps_rekomendasi"
+    id                      = Column(Integer, primary_key=True, index=True)
+    no                      = Column(Integer)
+    kilang                  = Column(Text)
+    rcps                    = Column(Text)
+    rcps_no                 = Column(Text)
+    judul_rcps              = Column(Text)
+    link_rcps               = Column(Text)
+    rekomendasi             = Column(Text)
+    description             = Column(Text)
+    traffic                 = Column(Text)
+    pic                     = Column(Text)
+    target                  = Column(Text)
+    recommendation_category = Column(Text)
+    external_resource       = Column(Text)
+    no_irkap                = Column(Text)
+    remark                  = Column(Text)
+
+# ─── 19. RCPS ─────────────────────────────────────────────────────────────────
+class RCPS(Base):
+    __tablename__ = "rcps"
+    id              = Column(Integer, primary_key=True, index=True)
+    kilang          = Column(Text)
+    traffic         = Column(Text)
+    sum_of_progress = Column(Integer)
+    link            = Column(Text)
+    disiplin        = Column(Text)
+    date            = Column(Text)
+    judul_rcps      = Column(Text)
+    rcps_no         = Column(Text)
+    criticallity    = Column(Text)
+
+# ─── 20. BOC (Basis of Comparison) ───────────────────────────────────────────
+class BOC(Base):
+    __tablename__ = "boc"
+    id              = Column(Integer, primary_key=True, index=True)
+    ru              = Column(Text)
+    area            = Column(Text)
+    unit            = Column(Text)
+    equipment       = Column(Text)
+    grup_equipment  = Column(Text)
+    qr_code         = Column(Text)
+    rfid            = Column(Text)
+    status          = Column(Text)
+    frequency       = Column(Integer)
+    running_hours   = Column(Float)
+    mttr            = Column(Float)
+    mtbf            = Column(Float)
+    hasil           = Column(Text)
+
+# ─── 21. READINESS JETTY ─────────────────────────────────────────────────────
+class ReadinessJetty(Base):
+    __tablename__ = "readiness_jetty"
+    id                       = Column(Integer, primary_key=True, index=True)
+    refinery_unit            = Column(Text)
+    area                     = Column(Text)
+    unit                     = Column(Text)
+    tag_no                   = Column(Text)
+    status_operation         = Column(Text)
+    no_tuks                  = Column(Text)
+    expired_tuks             = Column(Text)
+    status_tuks              = Column(Text)
+    no_ijin_ops              = Column(Text)
+    expired_ijin_ops         = Column(Text)
+    status_ijin_ops          = Column(Text)
+    no_isps                  = Column(Text)
+    expired_isps             = Column(Text)
+    status_isps              = Column(Text)
+    status_struktur          = Column(Text)
+    remark_struktur          = Column(Text)
+    status_trestle           = Column(Text)
+    remark_trestle           = Column(Text)
+    status_mla               = Column(Text)
+    remark_mla               = Column(Text)
+    status_fire_protection   = Column(Text)
+    remark_fire_protection   = Column(Text)
+    month_update             = Column(Text)
+
+# ─── 22. WORKPLAN JETTY ──────────────────────────────────────────────────────
+class WorkplanJetty(Base):
+    __tablename__ = "workplan_jetty"
+    id                   = Column(Integer, primary_key=True, index=True)
+    refinery_unit        = Column(Text)
+    area                 = Column(Text)
+    unit                 = Column(Text)
+    tag_no               = Column(Text)
+    item                 = Column(Text)
+    status_item          = Column(Text)
+    remark               = Column(Text)
+    rtl_action_plan      = Column(Text)
+    action_plan_category = Column(Text)
+    external_resource    = Column(Text)
+    no_irkap             = Column(Text)
+    target               = Column(Text)
+    keterangan           = Column(Text)
+    status_rtl           = Column(Text)
+    month_update         = Column(Text)
+
+# ─── 23. READINESS TANK ──────────────────────────────────────────────────────
+class ReadinessTank(Base):
+    __tablename__ = "readiness_tank"
+    id                        = Column(Integer, primary_key=True, index=True)
+    refinery_unit             = Column(Text)
+    area                      = Column(Text)
+    unit                      = Column(Text)
+    tag_number                = Column(Text)
+    type_tangki               = Column(Text)
+    service_tangki            = Column(Text)
+    prioritas                 = Column(Text)
+    status_operational        = Column(Text)
+    cert_no_atg               = Column(Text)
+    date_expired_atg          = Column(Text)
+    atg_certification_validity= Column(Text)
+    coi_date_expired          = Column(Text)
+    no_coi                    = Column(Text)
+    status_coi                = Column(Text)
+    internal_inspection       = Column(Text)
+    plan_internal_inspection  = Column(Text)
+    status_atg                = Column(Text)
+    remark_atg                = Column(Text)
+    status_grounding          = Column(Text)
+    status_shell_course       = Column(Text)
+    remark_shell_course       = Column(Text)
+    status_roof               = Column(Text)
+    remark_roof               = Column(Text)
+    status_cathodic           = Column(Text)
+    remark_cathodic           = Column(Text)
+    month_update              = Column(Text)
+
+# ─── 24. WORKPLAN TANK ───────────────────────────────────────────────────────
+class WorkplanTank(Base):
+    __tablename__ = "workplan_tank"
+    id                   = Column(Integer, primary_key=True, index=True)
+    unit                 = Column(Text)
+    tag_no               = Column(Text)
+    item                 = Column(Text)
+    remark               = Column(Text)
+    rtl_action_plan      = Column(Text)
+    action_plan_category = Column(Text)
+    external_resource    = Column(Text)
+    no_irkap             = Column(Text)
+    target               = Column(Text)
+    keterangan           = Column(Text)
+    status_rtl           = Column(Text)
+    month_update         = Column(Text)
+
+# ─── 25. READINESS SPM ───────────────────────────────────────────────────────
+class ReadinessSPM(Base):
+    __tablename__ = "readiness_spm"
+    id                        = Column(Integer, primary_key=True, index=True)
+    refinery_unit             = Column(Text)
+    area                      = Column(Text)
+    unit                      = Column(Text)
+    tag_no                    = Column(Text)
+    status_operation          = Column(Text)
+    no_laik_operasi           = Column(Text)
+    expired_laik_operasi      = Column(Text)
+    status_laik_operasi       = Column(Text)
+    no_ijin_spl               = Column(Text)
+    expired_ijin_spl          = Column(Text)
+    status_ijin_spl           = Column(Text)
+    status_mbc                = Column(Text)
+    remark_mbc                = Column(Text)
+    status_lds                = Column(Text)
+    remark_lds                = Column(Text)
+    status_mooring_hawser     = Column(Text)
+    remark_mooring_hawser     = Column(Text)
+    status_floating_hose      = Column(Text)
+    remark_floating_hose      = Column(Text)
+    status_cathodic_spl       = Column(Text)
+    status_cathodic_spm       = Column(Text)
+    month_update              = Column(Text)
+
+# ─── 26. SPM WORKPLAN ────────────────────────────────────────────────────────
+class SPMWorkplan(Base):
+    __tablename__ = "spm_workplan"
+    id                   = Column(Integer, primary_key=True, index=True)
+    refinery_unit        = Column(Text)
+    area                 = Column(Text)
+    unit                 = Column(Text)
+    tag_no               = Column(Text)
+    item                 = Column(Text)
+    remark               = Column(Text)
+    rtl_action_plan      = Column(Text)
+    action_plan_category = Column(Text)
+    external_resource    = Column(Text)
+    no_irkap             = Column(Text)
+    target               = Column(Text)
+    keterangan           = Column(Text)
+    status_rtl           = Column(Text)
+    month_update         = Column(Text)
