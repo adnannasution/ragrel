@@ -280,7 +280,13 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     # Step 3: Generate jawaban final dengan hasil query + history
     answer_messages = messages + [
         {"role": "user", "content": question},
-        {"role": "user", "content": f"Hasil query SQL:\n{db_result}\n\nBerikan jawaban final dalam Bahasa Indonesia sesuai aturan format."}
+        {"role": "user", "content": (
+            f"Hasil query SQL:\n{db_result}\n\n"
+            f"Berikan jawaban final dalam Bahasa Indonesia sesuai aturan format.\n"
+            f"PENTING: Jika data mengandung angka yang bisa divisualisasikan, WAJIB sertakan tag grafik "
+            f"dengan format PERSIS seperti ini (jangan hanya bilang 'berikut grafik' tanpa tag):\n"
+            f"[CHART] {{\"type\": \"bar\", \"dataset_label\": \"Label\", \"labels\": [\"A\",\"B\"], \"data\": [10,20]}} [/CHART]"
+        )}
     ]
     final_response = await loop.run_in_executor(None, lambda: llm.invoke(answer_messages))
     return final_response.content
