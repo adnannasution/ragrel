@@ -155,6 +155,7 @@ ATURAN QUERY PRISMA:
 - Untuk query PRISMA, generate SQL lalu panggil query_prisma(sql)
 - Keyword PRISMA: turnaround, TA, material, reservasi, PR, PO, kertas kerja, work order TA
 - JANGAN query tabel PRISMA ke database lokal — gunakan query_prisma()
+- Jika hasil data PRISMA lebih dari 10 baris atau user ingin melihat data lengkap/export Excel, arahkan user ke: <a href="https://monitoring-material-production.up.railway.app/" target="_blank">🔗 Buka Aplikasi PRISMA TA-ex</a>
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -218,6 +219,21 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
             messages.append({"role": "user", "content": msg.content})
         elif isinstance(msg, AIMessage):
             messages.append({"role": "assistant", "content": msg.content})
+
+    # ── Cek relevansi pertanyaan via LLM ──
+    relevance_check = await loop.run_in_executor(None, lambda: llm.invoke([{
+        "role": "user",
+        "content": (
+            "Apakah pertanyaan berikut relevan dengan salah satu topik ini: "
+            "maintenance kilang, procurement material, turnaround, inspeksi equipment, "
+            "anggaran maintenance, monitoring operasi refinery, atau data teknis kilang minyak? "
+            "Jawab hanya dengan satu kata: YA atau TIDAK.\n\n"
+            f"Pertanyaan: {question}"
+        )
+    }]))
+    if "TIDAK" in relevance_check.content.strip().upper():
+        return ("⚠️ Maaf, saya hanya dapat membantu <b>analisis data maintenance dan operasional kilang</b>. "
+                "Silakan ajukan pertanyaan yang berkaitan dengan data yang tersedia.")
 
     # Deteksi apakah pertanyaan tentang data PRISMA TA-ex
     PRISMA_KEYWORDS = [
@@ -804,10 +820,42 @@ async def ask_ai(question: str, session_id: str = "default"):
     q_lower = question.lower()
 
     OUT_OF_SCOPE = [
-        "cuaca", "berita", "news", "coding", "resep", "masak", "film", "musik",
+        "cuaca", "berita", "news", "resep", "masak", "film", "musik",
         "olahraga", "politik", "saham", "crypto", "bitcoin", "translate", "terjemahkan",
-        "siapa presiden", "capital of", "ibukota",
+        "siapa presiden", "capital of", "ibukota", "internet", "sosial media",
+        "instagram", "tiktok", "youtube", "google", "facebook", "twitter",
+        "harga bbm", "kurs", "forex", "investasi saham",
     ]
+
+    # ── Filter: SQL Injection ──
+    SQL_KEYWORDS = [
+        "select ", "insert ", "update ", "delete ", "drop ", "truncate ",
+        "alter ", "create table", "grant ", "revoke ", "exec(",
+        "union select", "1=1", "or 1=1",
+    ]
+    if any(kw in q_lower for kw in SQL_KEYWORDS):
+        async def sql_injection_guard():
+            yield sse("progress", "parse")
+            await asyncio.sleep(0.3)
+            yield sse("done", "🚫 Permintaan tidak diizinkan. Saya tidak menerima input berupa query SQL atau kode secara langsung. Silakan ajukan pertanyaan dalam Bahasa Indonesia.")
+        return StreamingResponse(sql_injection_guard(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # ── Filter: Koding / Programming ──
+    CODE_KEYWORDS = [
+        "def ", "import ", "print(", "console.log", "var ", "const ", "let ",
+        "function ", "class ", "public static", "<?php", "<html", "sudo ",
+        "pip install", "npm install", "git ", "docker ", "kubectl",
+        "lambda ", "return ", "for i in", "while (", "if (", "cout <<",
+        "scanf(", "printf(", "int main", "#include",
+    ]
+    if any(kw in question for kw in CODE_KEYWORDS):
+        async def code_guard():
+            yield sse("progress", "parse")
+            await asyncio.sleep(0.3)
+            yield sse("done", "🚫 Permintaan tidak diizinkan. Saya tidak memproses kode pemrograman. Silakan ajukan pertanyaan analisis data dalam Bahasa Indonesia.")
+        return StreamingResponse(code_guard(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
     DUMP_KEYWORDS = [
         "tampilkan semua", "lihat semua", "show all", "list semua", "dump",
         "seluruh isi", "semua baris", "semua data", "semua isi", "semua record",
