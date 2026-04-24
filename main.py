@@ -260,7 +260,7 @@ def sync_anggaran(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name="RU's", header=None)
     ru_col_start = {
         'RU II': 1, 'RU III': 9, 'RU IV': 17,
-        'RU V': 25, 'RU VI': 33, 'RU VII': 41, 'All RUs': 49,
+        'RU V': 25, 'RU VI': 33, 'RU VII': 41,
     }
     ru_years = {}
     for ru_name, start_col in ru_col_start.items():
@@ -278,7 +278,7 @@ def sync_anggaran(file_location: str, db: Session):
         (8,  'NON RUTIN',   'RKAP'), (9,  'NON RUTIN',   'PLAN'), (10, 'NON RUTIN',   'AKTUAL'),
         (12, 'TURN AROUND', 'RKAP'), (13, 'TURN AROUND', 'PLAN'), (14, 'TURN AROUND', 'AKTUAL'),
         (16, 'OVERHAUL',    'RKAP'), (17, 'OVERHAUL',    'PLAN'), (18, 'OVERHAUL',    'AKTUAL'),
-        (21, 'TOTAL',       'RKAP'), (22, 'TOTAL',       'PLAN'), (23, 'TOTAL',       'AKTUAL'),
+     
     ]
     db.query(AnggaranMaintenance).delete()
     count = 0
