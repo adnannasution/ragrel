@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Text
+from sqlalchemy import Column, Integer, Float, Text, Numeric
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -11,7 +11,7 @@ class AnggaranMaintenance(Base):
     tahun     = Column(Integer)
     kategori  = Column(Text)
     tipe      = Column(Text)
-    nilai_usd = Column(Float)
+    nilai_usd = Column(Numeric(18, 2))
 
 # ─── 2. PIPELINE INSPECTION ──────────────────────────────────────────────────
 class PipelineInspection(Base):
@@ -314,8 +314,8 @@ class TKDN(Base):
     id            = Column(Integer, primary_key=True, index=True)
     refinery_unit = Column(Text)
     bulan         = Column(Text)
-    nominal       = Column(Float)
-    kdn           = Column(Float)
+    nominal       = Column(Numeric(18, 2))
+    kdn           = Column(Numeric(18, 2))
     persentase    = Column(Float)
     tahun         = Column(Integer)
 
