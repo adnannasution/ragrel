@@ -220,21 +220,6 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         elif isinstance(msg, AIMessage):
             messages.append({"role": "assistant", "content": msg.content})
 
-    # ── Cek relevansi pertanyaan via LLM ──
-    relevance_check = await loop.run_in_executor(None, lambda: llm.invoke([{
-        "role": "user",
-        "content": (
-            "Apakah pertanyaan berikut relevan dengan salah satu topik ini: "
-            "maintenance kilang, procurement material, turnaround, inspeksi equipment, "
-            "anggaran maintenance, monitoring operasi refinery, atau data teknis kilang minyak? "
-            "Jawab hanya dengan satu kata: YA atau TIDAK.\n\n"
-            f"Pertanyaan: {question}"
-        )
-    }]))
-    if "TIDAK" in relevance_check.content.strip().upper():
-        return ("⚠️ Maaf, saya hanya dapat membantu <b>analisis data maintenance dan operasional kilang</b>. "
-                "Silakan ajukan pertanyaan yang berkaitan dengan data yang tersedia.")
-
     # Deteksi apakah pertanyaan tentang data PRISMA TA-ex
     PRISMA_KEYWORDS = [
         "turnaround", "ta-ex", "taex", "reservasi", "material ta",
@@ -964,9 +949,11 @@ async def ask_ai(question: str, session_id: str = "default"):
 
             await task  # tunggu chain selesai
 
-            answer = result_holder["result"].replace("```sql", "").replace("```", "").strip()
-            # Simpan ke history sesi
-            add_session_history(session_id, question, answer)
+            raw = result_holder.get("result") or ""
+            answer = raw.replace("```sql", "").replace("```", "").strip()
+            # Simpan ke history sesi hanya kalau ada jawaban substantif
+            if answer and "⚠️ Maaf" not in answer:
+                add_session_history(session_id, question, answer)
             yield sse("done", answer)
 
         except Exception as e:
