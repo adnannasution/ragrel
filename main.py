@@ -249,19 +249,36 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         # ── PRISMA PATH: generate SQL → query_prisma ──
         sql_messages = messages + [{"role": "user", "content": (
             f"Berikan HANYA query SQL PostgreSQL yang valid untuk pertanyaan berikut "
-            f"menggunakan tabel PRISMA TA-ex (taex_reservasi, prisma_reservasi, "
-            f"kumpulan_summary, sap_pr, sap_po, work_order). "
-            f"Ingat: kolom 'order' harus ditulis dengan tanda kutip ganda. "
-            f"Selalu tambahkan LIMIT 50. Tanpa penjelasan, tanpa markdown.\n\nPertanyaan: {question}"
+            f"menggunakan tabel PRISMA TA-ex. "
+            f"Tabel tersedia: taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order. "
+            f"ATURAN WAJIB:\n"
+            f"1. Kolom 'order' SELALU ditulis dengan tanda kutip ganda: \"order\"\n"
+            f"2. Selalu tambahkan LIMIT 50 di akhir query\n"
+            f"3. Untuk hitung yang sudah PR: WHERE pr IS NOT NULL AND pr != ''\n"
+            f"4. Untuk hitung yang belum PR: WHERE pr IS NULL OR pr = ''\n"
+            f"5. Untuk status PO: JOIN sap_po ON sap_po.purchreq = taex_reservasi.pr\n"
+            f"6. Gunakan COUNT(*) atau COUNT(DISTINCT ...) untuk agregasi\n"
+            f"7. HANYA output SQL murni, tanpa penjelasan, tanpa markdown, tanpa backtick\n"
+            f"\nPertanyaan: {question}"
         )}]
         sql_response = await loop.run_in_executor(None, lambda: llm.invoke(sql_messages))
         sql_query = sql_response.content.replace("```sql", "").replace("```", "").strip()
 
         prisma_result = await loop.run_in_executor(None, lambda: query_prisma(sql_query))
         if prisma_result.get("ok"):
-            db_result = f"Hasil dari PRISMA TA-ex ({prisma_result.get('rows', 0)} baris):\n{prisma_result.get('data', [])}"
+            rows = prisma_result.get('rows', 0)
+            data = prisma_result.get('data', [])
+            db_result = f"Hasil dari PRISMA TA-ex ({rows} baris):\n{data}"
         else:
-            db_result = f"Gagal query PRISMA: {prisma_result.get('error', 'Unknown error')}"
+            err = prisma_result.get('error', 'Unknown error')
+            # Log SQL yang gagal untuk debugging
+            print(f"[PRISMA ERROR] SQL: {sql_query}")
+            print(f"[PRISMA ERROR] Error: {err}")
+            db_result = (
+                f"Query PRISMA gagal. SQL yang dicoba: {sql_query}. "
+                f"Error: {err}. "
+                f"Coba perbaiki query atau arahkan user ke aplikasi PRISMA langsung."
+            )
     else:
         # ── LOCAL PATH: query database lokal seperti biasa ──
         # Step 1: Generate SQL dengan konteks history
