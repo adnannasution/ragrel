@@ -318,6 +318,29 @@
                     </div>
                 </div>
 
+                <!-- Upload Mode Selector (hanya muncul untuk tabel yang mendukung append) -->
+                <div id="uploadModeSelector" class="hidden mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                    <p class="text-xs font-semibold text-amber-700 mb-2">⚙️ Mode Upload Data</p>
+                    <div class="flex gap-2">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="uploadMode" value="replace" checked class="sr-only" id="modeReplace">
+                            <div class="mode-option border-2 border-indigo-500 bg-indigo-50 rounded-lg p-2.5 text-center transition" id="modeReplaceCard">
+                                <div class="text-base mb-0.5">🔄</div>
+                                <div class="text-xs font-bold text-indigo-700">Update/Replace</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">Hapus data lama, ganti dengan file baru</div>
+                            </div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="uploadMode" value="append" class="sr-only" id="modeAppend">
+                            <div class="mode-option border-2 border-gray-200 bg-white rounded-lg p-2.5 text-center transition" id="modeAppendCard">
+                                <div class="text-base mb-0.5">➕</div>
+                                <div class="text-xs font-bold text-gray-700">Append/Tambah</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">Data baru ditambahkan ke data yang sudah ada</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <input type="file" id="excelFile" accept=".xlsx,.xls"
                     class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
             </div>
@@ -339,6 +362,12 @@
     // Generate session ID unik per tab browser
     const SESSION_ID = 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
 
+    const APPEND_SUPPORTED_TYPES = new Set([
+        'readiness_jetty', 'workplan_jetty',
+        'readiness_tank', 'workplan_tank',
+        'readiness_spm', 'spm_workplan'
+    ]);
+
     function selectType(type, el) {
         selectedDataType = type;
         document.querySelectorAll('.card-option').forEach(e => {
@@ -347,7 +376,40 @@
         });
         el.classList.add('selected', 'border-indigo-500', 'bg-indigo-50');
         el.classList.remove('border-gray-200', 'bg-white');
+
+        // Tampilkan mode selector hanya untuk tabel yang mendukung append
+        const modeSelector = document.getElementById('uploadModeSelector');
+        if (APPEND_SUPPORTED_TYPES.has(type)) {
+            modeSelector.classList.remove('hidden');
+        } else {
+            modeSelector.classList.add('hidden');
+            // Reset ke replace
+            document.getElementById('modeReplace').checked = true;
+            setModeCard('replace');
+        }
     }
+
+    function setModeCard(mode) {
+        const replaceCard = document.getElementById('modeReplaceCard');
+        const appendCard  = document.getElementById('modeAppendCard');
+        if (mode === 'replace') {
+            replaceCard.className = 'mode-option border-2 border-indigo-500 bg-indigo-50 rounded-lg p-2.5 text-center transition';
+            appendCard.className  = 'mode-option border-2 border-gray-200 bg-white rounded-lg p-2.5 text-center transition';
+        } else {
+            appendCard.className  = 'mode-option border-2 border-green-500 bg-green-50 rounded-lg p-2.5 text-center transition';
+            replaceCard.className = 'mode-option border-2 border-gray-200 bg-white rounded-lg p-2.5 text-center transition';
+        }
+    }
+
+    // Klik kartu mode
+    document.getElementById('modeReplaceCard').addEventListener('click', () => {
+        document.getElementById('modeReplace').checked = true;
+        setModeCard('replace');
+    });
+    document.getElementById('modeAppendCard').addEventListener('click', () => {
+        document.getElementById('modeAppend').checked = true;
+        setModeCard('append');
+    });
 
     async function resetSession() {
         await fetch(`/reset-session?session_id=${SESSION_ID}`, { method: 'POST' });
@@ -730,6 +792,8 @@
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
         formData.append('data_type', selectedDataType);
+        const selectedMode = document.querySelector('input[name="uploadMode"]:checked')?.value || 'replace';
+        formData.append('mode', selectedMode);
 
         try {
             const res = await fetch('/upload-sync', { method: 'POST', body: formData });

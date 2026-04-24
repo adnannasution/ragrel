@@ -196,6 +196,7 @@ async def chat_ui(request: Request):
 async def upload_sync(
     file: UploadFile = File(...),
     data_type: str = Form(...),  # anggaran | pipeline | rotor | atg | metering
+    mode: str = Form("replace"),  # replace | append
     db: Session = Depends(get_db)
 ):
     file_location = f"temp_{file.filename}"
@@ -231,9 +232,17 @@ async def upload_sync(
             "readiness_spm":   sync_readiness_spm,
             "spm_workplan":    sync_spm_workplan,
         }
+        APPEND_SUPPORTED = {
+            "readiness_jetty", "workplan_jetty",
+            "readiness_tank", "workplan_tank",
+            "readiness_spm", "spm_workplan",
+        }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
-        result = handlers[data_type](file_location, db)
+        if data_type in APPEND_SUPPORTED:
+            result = handlers[data_type](file_location, db, mode=mode)
+        else:
+            result = handlers[data_type](file_location, db)
         _save_upload_time(data_type)
         return result
     except Exception as e:
@@ -1147,9 +1156,10 @@ def sync_boc(file_location: str, db: Session):
     db.commit()
     return {"message": f"✅ BOC berhasil diupdate! ({count} records)"}
 
-def sync_readiness_jetty(file_location: str, db: Session):
+def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
-    db.query(ReadinessJetty).delete()
+    if mode == "replace":
+        db.query(ReadinessJetty).delete()
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessJetty(
@@ -1179,11 +1189,13 @@ def sync_readiness_jetty(file_location: str, db: Session):
         ))
         count += 1
     db.commit()
-    return {"message": f"✅ Readiness Jetty berhasil diupdate! ({count} records)"}
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ Readiness Jetty berhasil {action}! ({count} records)"}
 
-def sync_workplan_jetty(file_location: str, db: Session):
+def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
-    db.query(WorkplanJetty).delete()
+    if mode == "replace":
+        db.query(WorkplanJetty).delete()
     count = 0
     for _, row in df.iterrows():
         db.add(WorkplanJetty(
@@ -1205,11 +1217,13 @@ def sync_workplan_jetty(file_location: str, db: Session):
         ))
         count += 1
     db.commit()
-    return {"message": f"✅ Workplan Jetty berhasil diupdate! ({count} records)"}
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ Workplan Jetty berhasil {action}! ({count} records)"}
 
-def sync_readiness_tank(file_location: str, db: Session):
+def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
-    db.query(ReadinessTank).delete()
+    if mode == "replace":
+        db.query(ReadinessTank).delete()
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessTank(
@@ -1242,11 +1256,13 @@ def sync_readiness_tank(file_location: str, db: Session):
         ))
         count += 1
     db.commit()
-    return {"message": f"✅ Readiness Tank berhasil diupdate! ({count} records)"}
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ Readiness Tank berhasil {action}! ({count} records)"}
 
-def sync_workplan_tank(file_location: str, db: Session):
+def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
-    db.query(WorkplanTank).delete()
+    if mode == "replace":
+        db.query(WorkplanTank).delete()
     count = 0
     for _, row in df.iterrows():
         db.add(WorkplanTank(
@@ -1265,11 +1281,13 @@ def sync_workplan_tank(file_location: str, db: Session):
         ))
         count += 1
     db.commit()
-    return {"message": f"✅ Workplan Tank berhasil diupdate! ({count} records)"}
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ Workplan Tank berhasil {action}! ({count} records)"}
 
-def sync_readiness_spm(file_location: str, db: Session):
+def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
-    db.query(ReadinessSPM).delete()
+    if mode == "replace":
+        db.query(ReadinessSPM).delete()
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessSPM(
@@ -1298,11 +1316,13 @@ def sync_readiness_spm(file_location: str, db: Session):
         ))
         count += 1
     db.commit()
-    return {"message": f"✅ Readiness SPM berhasil diupdate! ({count} records)"}
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ Readiness SPM berhasil {action}! ({count} records)"}
 
-def sync_spm_workplan(file_location: str, db: Session):
+def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
-    db.query(SPMWorkplan).delete()
+    if mode == "replace":
+        db.query(SPMWorkplan).delete()
     count = 0
     for _, row in df.iterrows():
         db.add(SPMWorkplan(
@@ -1323,4 +1343,5 @@ def sync_spm_workplan(file_location: str, db: Session):
         ))
         count += 1
     db.commit()
-    return {"message": f"✅ SPM Workplan berhasil diupdate! ({count} records)"}
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ SPM Workplan berhasil {action}! ({count} records)"}
