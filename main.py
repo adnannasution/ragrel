@@ -1,5 +1,6 @@
 import os
 import io
+import requests
 import json
 import asyncio
 import pandas as pd
@@ -19,6 +20,27 @@ from langchain_core.messages import HumanMessage, AIMessage
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ─── PRISMA TA-ex Integration ─────────────────────────────────
+PRISMA_URL      = os.getenv("PRISMA_URL", "")
+CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY", "")
+PRISMA_HEADERS  = {"x-chatbot-key": CHATBOT_API_KEY}
+
+def query_prisma(sql: str) -> dict:
+    """Kirim SQL ke PRISMA TA-ex, return hasil JSON."""
+    if not PRISMA_URL:
+        return {"ok": False, "error": "PRISMA_URL belum dikonfigurasi"}
+    try:
+        r = requests.post(
+            f"{PRISMA_URL}/chatbot/query",
+            headers=PRISMA_HEADERS,
+            json={"sql": sql},
+            timeout=30
+        )
+        return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+# ─────────────────────────────────────────────────────────────
 
 UPLOAD_REGISTRY = "upload_registry.json"
 
@@ -101,6 +123,39 @@ ATURAN QUERY SQL:
 - Untuk readiness_spm: kesiapan operasional SPM — kolom refinery_unit, tag_no, status_operation, status_laik_operasi, expired_laik_operasi, status_ijin_spl, status_mbc, status_lds, status_mooring_hawser, status_floating_hose, status_cathodic_spl, month_update.
 - Untuk spm_workplan: workplan perbaikan SPM — kolom refinery_unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
 
+TABEL EKSTERNAL PRISMA TA-ex (data procurement material Turnaround):
+Untuk pertanyaan tentang material TA, reservasi, PR, PO, work order turnaround — gunakan query_prisma(sql).
+Tabel yang tersedia di sistem PRISMA (BUKAN di database lokal ini):
+- taex_reservasi: reservasi material utama TA-ex
+  kolom: plant, equipment, "order" (pakai tanda kutip!), reservno, material, material_description,
+         qty_reqmts, qty_stock, pr, item, qty_pr, del, fis, ict, pg, reqmts_date, uom, res_price, res_curr
+- prisma_reservasi: subset taex aktif (ict=L)
+  kolom: plant, equipment, "order", material, qty_reqmts, qty_stock_onhand,
+         pr_prisma, qty_pr_prisma, code_kertas_kerja
+- kumpulan_summary: ringkasan kebutuhan material per kertas kerja
+  kolom: material, material_description, qty_req, qty_stock, qty_pr, qty_to_pr, code_tracking
+- sap_pr: Purchase Request dari SAP
+  kolom: plant, pr, material, material_description, qty_pr, req_date, release_date, tracking_no
+- sap_po: Purchase Order dari SAP
+  kolom: plnt, purchreq (=nomor PR), material, po, po_quantity, qty_delivered, deliv_date, net_price, crcy
+- work_order: Work Order dari SAP
+  kolom: plant, "order", equipment, description, system_status, planner_group,
+         basic_start_date, basic_finish_date, total_plan_cost, total_act_cost
+
+STATUS PROCUREMENT (join taex + sap_po ON sap_po.purchreq = taex_reservasi.pr):
+- no-pr:      pr IS NULL atau pr = ''
+- pr-created: pr ada, belum ada PO
+- po-created: PO ada, qty_delivered = 0
+- partial:    qty_delivered > 0 tapi < po_quantity
+- complete:   qty_delivered >= po_quantity
+
+ATURAN QUERY PRISMA:
+- Kolom "order" WAJIB ditulis dengan tanda kutip ganda: "order"
+- Selalu gunakan LIMIT maksimal 50
+- Untuk query PRISMA, generate SQL lalu panggil query_prisma(sql)
+- Keyword PRISMA: turnaround, TA, material, reservasi, PR, PO, kertas kerja, work order TA
+- JANGAN query tabel PRISMA ke database lokal — gunakan query_prisma()
+
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
 2. Gunakan HTML <table border='1'> untuk data banyak atau perbandingan.
@@ -164,16 +219,45 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         elif isinstance(msg, AIMessage):
             messages.append({"role": "assistant", "content": msg.content})
 
-    # Step 1: Generate SQL dengan konteks history
-    sql_messages = messages + [{"role": "user", "content": f"Berikan HANYA query SQL PostgreSQL yang valid untuk: {question}. Tanpa penjelasan, tanpa markdown."}]
-    sql_response = await loop.run_in_executor(None, lambda: llm.invoke(sql_messages))
-    sql_query = sql_response.content.replace("```sql", "").replace("```", "").strip()
+    # Deteksi apakah pertanyaan tentang data PRISMA TA-ex
+    PRISMA_KEYWORDS = [
+        "turnaround", "ta-ex", "taex", "reservasi", "material ta",
+        "purchase request", " pr ", "purchase order", " po ",
+        "kertas kerja", "kumpulan summary", "work order ta",
+        "belum pr", "sudah pr", "delivery material", "stock onhand",
+        "sap pr", "sap po", "procurement",
+    ]
+    is_prisma = any(kw in question.lower() for kw in PRISMA_KEYWORDS)
 
-    # Step 2: Execute SQL
-    try:
-        db_result = await loop.run_in_executor(None, lambda: db_engine.run(sql_query))
-    except Exception as e:
-        db_result = f"Query error: {str(e)}"
+    if is_prisma and PRISMA_URL:
+        # ── PRISMA PATH: generate SQL → query_prisma ──
+        sql_messages = messages + [{"role": "user", "content": (
+            f"Berikan HANYA query SQL PostgreSQL yang valid untuk pertanyaan berikut "
+            f"menggunakan tabel PRISMA TA-ex (taex_reservasi, prisma_reservasi, "
+            f"kumpulan_summary, sap_pr, sap_po, work_order). "
+            f"Ingat: kolom 'order' harus ditulis dengan tanda kutip ganda. "
+            f"Selalu tambahkan LIMIT 50. Tanpa penjelasan, tanpa markdown.\n\nPertanyaan: {question}"
+        )}]
+        sql_response = await loop.run_in_executor(None, lambda: llm.invoke(sql_messages))
+        sql_query = sql_response.content.replace("```sql", "").replace("```", "").strip()
+
+        prisma_result = await loop.run_in_executor(None, lambda: query_prisma(sql_query))
+        if prisma_result.get("ok"):
+            db_result = f"Hasil dari PRISMA TA-ex ({prisma_result.get('rows', 0)} baris):\n{prisma_result.get('data', [])}"
+        else:
+            db_result = f"Gagal query PRISMA: {prisma_result.get('error', 'Unknown error')}"
+    else:
+        # ── LOCAL PATH: query database lokal seperti biasa ──
+        # Step 1: Generate SQL dengan konteks history
+        sql_messages = messages + [{"role": "user", "content": f"Berikan HANYA query SQL PostgreSQL yang valid untuk: {question}. Tanpa penjelasan, tanpa markdown."}]
+        sql_response = await loop.run_in_executor(None, lambda: llm.invoke(sql_messages))
+        sql_query = sql_response.content.replace("```sql", "").replace("```", "").strip()
+
+        # Step 2: Execute SQL
+        try:
+            db_result = await loop.run_in_executor(None, lambda: db_engine.run(sql_query))
+        except Exception as e:
+            db_result = f"Query error: {str(e)}"
 
     # Step 3: Generate jawaban final dengan hasil query + history
     answer_messages = messages + [
