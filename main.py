@@ -26,6 +26,92 @@ PRISMA_URL      = os.getenv("PRISMA_URL", "")
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY", "")
 PRISMA_HEADERS  = {"x-chatbot-key": CHATBOT_API_KEY}
 
+
+def fetch_prisma_schema() -> dict:
+    """Fetch schema langsung dari PRISMA saat startup — sekali saja."""
+    if not PRISMA_URL:
+        return {}
+    try:
+        r = requests.get(
+            f"{PRISMA_URL}/chatbot/schema",
+            headers=PRISMA_HEADERS,
+            timeout=15
+        )
+        return r.json()
+    except Exception as e:
+        print(f"[PRISMA] Gagal fetch schema: {e}")
+        return {}
+
+
+def build_prisma_schema_prompt(schema: dict) -> str:
+    """
+    Bangun deskripsi schema PRISMA dari response /chatbot/schema
+    untuk dimasukkan ke CUSTOM_PROMPT secara otomatis.
+    """
+    if not schema or "tables" not in schema:
+        return ""
+
+    lines = [
+        "TABEL EKSTERNAL PRISMA TA-ex (data procurement material Turnaround):",
+        "Untuk pertanyaan tentang material TA, reservasi, PR, PO, work order turnaround — gunakan query_prisma(sql).",
+        "Tabel tersedia di PRISMA (BUKAN di database lokal):",
+    ]
+
+    for tbl_name, tbl in schema.get("tables", {}).items():
+        col_names = tbl.get("column_names", [])
+        desc      = tbl.get("description", "")
+        # Kolom order perlu tanda kutip — tandai
+        cols_display = []
+        for c in col_names:
+            if c == "order":
+                cols_display.append('"order"')
+            else:
+                cols_display.append(c)
+        lines.append(f'- {tbl_name}: {desc}')
+        lines.append(f'  kolom: {", ".join(cols_display)}')
+
+    # Tambah join hints dan status logic dari schema
+    if "join_hints" in schema:
+        lines.append("")
+        lines.append("JOIN HINTS:")
+        for k, v in schema["join_hints"].items():
+            lines.append(f"  {k}: {v}")
+
+    if "status_logic" in schema:
+        lines.append("")
+        lines.append("STATUS PROCUREMENT:")
+        for k, v in schema["status_logic"].items():
+            lines.append(f"  {k}: {v}")
+
+    if "important_notes" in schema:
+        lines.append("")
+        lines.append("CATATAN PENTING:")
+        for note in schema["important_notes"]:
+            lines.append(f"  - {note}")
+
+    lines += [
+        "",
+        "ATURAN QUERY PRISMA:",
+        '- Kolom "order" WAJIB ditulis dengan tanda kutip ganda: "order"',
+        "- Selalu gunakan LIMIT maksimal 50",
+        "- JANGAN query tabel PRISMA ke database lokal — gunakan query_prisma(sql)",
+        '- Jika hasil data PRISMA lebih dari 10 baris, arahkan ke: <a href="https://monitoring-material-production.up.railway.app/" target="_blank">🔗 Buka Aplikasi PRISMA TA-ex</a>',
+    ]
+
+    return "\n".join(lines)
+
+
+# Fetch schema PRISMA saat module load
+PRISMA_SCHEMA = fetch_prisma_schema()
+PRISMA_SCHEMA_PROMPT = build_prisma_schema_prompt(PRISMA_SCHEMA)
+
+# Tabel yang ada di PRISMA (dari schema, untuk deteksi routing)
+PRISMA_TABLES = set(PRISMA_SCHEMA.get("allowed_tables", [
+    "taex_reservasi", "prisma_reservasi", "kumpulan_summary",
+    "sap_pr", "sap_po", "work_order"
+]))
+
+
 def query_prisma(sql: str) -> dict:
     """Kirim SQL ke PRISMA TA-ex, return hasil JSON."""
     if not PRISMA_URL:
@@ -123,39 +209,7 @@ ATURAN QUERY SQL:
 - Untuk readiness_spm: kesiapan operasional SPM — kolom refinery_unit, tag_no, status_operation, status_laik_operasi, expired_laik_operasi, status_ijin_spl, status_mbc, status_lds, status_mooring_hawser, status_floating_hose, status_cathodic_spl, month_update.
 - Untuk spm_workplan: workplan perbaikan SPM — kolom refinery_unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
 
-TABEL EKSTERNAL PRISMA TA-ex (data procurement material Turnaround):
-Untuk pertanyaan tentang material TA, reservasi, PR, PO, work order turnaround — gunakan query_prisma(sql).
-Tabel yang tersedia di sistem PRISMA (BUKAN di database lokal ini):
-- taex_reservasi: reservasi material utama TA-ex
-  kolom: plant, equipment, "order" (pakai tanda kutip!), reservno, material, material_description,
-         qty_reqmts, qty_stock, pr, item, qty_pr, del, fis, ict, pg, reqmts_date, uom, res_price, res_curr
-- prisma_reservasi: subset taex aktif (ict=L)
-  kolom: plant, equipment, "order", material, qty_reqmts, qty_stock_onhand,
-         pr_prisma, qty_pr_prisma, code_kertas_kerja
-- kumpulan_summary: ringkasan kebutuhan material per kertas kerja
-  kolom: material, material_description, qty_req, qty_stock, qty_pr, qty_to_pr, code_tracking
-- sap_pr: Purchase Request dari SAP
-  kolom: plant, pr, material, material_description, qty_pr, req_date, release_date, tracking_no
-- sap_po: Purchase Order dari SAP
-  kolom: plnt, purchreq (=nomor PR), material, po, po_quantity, qty_delivered, deliv_date, net_price, crcy
-- work_order: Work Order dari SAP
-  kolom: plant, "order", equipment, description, system_status, planner_group,
-         basic_start_date, basic_finish_date, total_plan_cost, total_act_cost
-
-STATUS PROCUREMENT (join taex + sap_po ON sap_po.purchreq = taex_reservasi.pr):
-- no-pr:      pr IS NULL atau pr = ''
-- pr-created: pr ada, belum ada PO
-- po-created: PO ada, qty_delivered = 0
-- partial:    qty_delivered > 0 tapi < po_quantity
-- complete:   qty_delivered >= po_quantity
-
-ATURAN QUERY PRISMA:
-- Kolom "order" WAJIB ditulis dengan tanda kutip ganda: "order"
-- Selalu gunakan LIMIT maksimal 50
-- Untuk query PRISMA, generate SQL lalu panggil query_prisma(sql)
-- Keyword PRISMA: turnaround, TA, material, reservasi, PR, PO, kertas kerja, work order TA
-- JANGAN query tabel PRISMA ke database lokal — gunakan query_prisma()
-- Jika hasil data PRISMA lebih dari 10 baris atau user ingin melihat data lengkap/export Excel, arahkan user ke: <a href="https://monitoring-material-production.up.railway.app/" target="_blank">🔗 Buka Aplikasi PRISMA TA-ex</a>
+{prisma_schema}
 
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
@@ -213,7 +267,8 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     table_info = db_engine.get_table_info()
 
     # Build messages dengan history
-    messages = [{"role": "system", "content": CUSTOM_PROMPT.replace("{table_info}", table_info).replace("{input}", "")}]
+    prisma_prompt = PRISMA_SCHEMA_PROMPT or "(PRISMA schema belum tersedia — pastikan PRISMA_URL sudah dikonfigurasi)"
+    messages = [{"role": "system", "content": CUSTOM_PROMPT.replace("{table_info}", table_info).replace("{prisma_schema}", prisma_prompt).replace("{input}", "")}]
     for msg in history:
         if isinstance(msg, HumanMessage):
             messages.append({"role": "user", "content": msg.content})
@@ -236,14 +291,19 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
                 "Silakan ajukan pertanyaan yang berkaitan dengan data yang tersedia.")
 
     # Deteksi apakah pertanyaan tentang data PRISMA TA-ex
-    PRISMA_KEYWORDS = [
-        "turnaround", "ta-ex", "taex", "reservasi", "material ta",
-        "purchase request", " pr ", "purchase order", " po ",
-        "kertas kerja", "kumpulan summary", "work order ta",
-        "belum pr", "sudah pr", "delivery material", "stock onhand",
-        "sap pr", "sap po", "procurement",
-    ]
-    is_prisma = any(kw in question.lower() for kw in PRISMA_KEYWORDS)
+    # ── Deteksi PRISMA via LLM — tidak pakai keyword hardcoded ──
+    # LLM cek apakah pertanyaan berkaitan dengan tabel PRISMA berdasarkan schema
+    prisma_table_list = ", ".join(PRISMA_TABLES) if PRISMA_TABLES else "taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order"
+    prisma_check = await loop.run_in_executor(None, lambda: llm.invoke([{
+        "role": "user",
+        "content": (
+            f"Apakah pertanyaan berikut berkaitan dengan data dari tabel PRISMA TA-ex berikut: "
+            f"{prisma_table_list}? "
+            f"Tabel ini berisi data procurement material turnaround kilang (reservasi, PR, PO, work order). "
+            f"Jawab hanya YA atau TIDAK.\n\nPertanyaan: {question}"
+        )
+    }]))
+    is_prisma = "YA" in prisma_check.content.strip().upper()
 
     if is_prisma and PRISMA_URL:
 
