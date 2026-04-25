@@ -126,33 +126,37 @@ ATURAN QUERY SQL:
 TABEL EKSTERNAL PRISMA TA-ex (data procurement material Turnaround):
 Untuk pertanyaan tentang material TA, reservasi, PR, PO, work order turnaround — gunakan query_prisma(sql).
 Tabel yang tersedia di sistem PRISMA (BUKAN di database lokal ini):
-- taex_reservasi: reservasi material utama TA-ex
-  kolom: plant, equipment, "order" (pakai tanda kutip!), reservno, material, material_description,
-         qty_reqmts, qty_stock, pr, item, qty_pr, del, fis, ict, pg, reqmts_date, uom, res_price, res_curr
-- prisma_reservasi: subset taex aktif (ict=L)
-  kolom: plant, equipment, "order", material, qty_reqmts, qty_stock_onhand,
-         pr_prisma, qty_pr_prisma, code_kertas_kerja
+- taex_reservasi / prisma_reservasi: reservasi material TA-ex
+  kolom: Plant (dari plpl/pl), Equipment, "Order" (WAJIB kutip ganda!), Reservno, Revision,
+         Material, Material_Description, Qty_Reqmts, Qty_Stock, PR, Item, Qty_PR,
+         Cost_Ctrs, SLoc, Del, FIs, Ict, PG, Recipient, Unloading_point,
+         Reqmts_Date, Qty_f_avail_check, Qty_Withdrawn, UoM, GL_Acct,
+         Res_Price, Res_per, Res_Curr, PO, PO_Date, Qty_Deliv, Delivery_Date
 - kumpulan_summary: ringkasan kebutuhan material per kertas kerja
   kolom: material, material_description, qty_req, qty_stock, qty_pr, qty_to_pr, code_tracking
 - sap_pr: Purchase Request dari SAP
-  kolom: plant, pr, material, material_description, qty_pr, req_date, release_date, tracking_no
+  kolom: Plant (dari plnt), PR, Item, Material, Material_Description, D, R, PGr, S,
+         TrackingNo, Qty_PR, Un, Req_Date, Valn_price, PR_Curr, PR_Per, Release_Date, Tracking
 - sap_po: Purchase Order dari SAP
-  kolom: plnt, purchreq (=nomor PR), material, po, po_quantity, qty_delivered, deliv_date, net_price, crcy
+  kolom: Plant, PO, PR (purchreq), Material, Material_Description, Qty_PR,
+         Qty_Deliv, Delivery_Date, Net_Price, Crcy
 - work_order: Work Order dari SAP
-  kolom: plant, "order", equipment, description, system_status, planner_group,
-         basic_start_date, basic_finish_date, total_plan_cost, total_act_cost
+  kolom: Plant, "Order" (kutip ganda!), Superior_Order, Notification, Created_On,
+         Description, Revision, Equipment, System_Status, User_Status, FunctLocation,
+         Location, WBS_Ord_header, CostCenter, Total_Plan_Cost, Total_Act_Cost,
+         Planner_Group, MainWorkCtr, Entry_by, Changed_by,
+         Basic_start_date, Basic_finish_date, Actual_Release
 
-STATUS PROCUREMENT (join taex + sap_po ON sap_po.purchreq = taex_reservasi.pr):
-- no-pr:      pr IS NULL atau pr = ''
-- pr-created: pr ada, belum ada PO
-- po-created: PO ada, qty_delivered = 0
-- partial:    qty_delivered > 0 tapi < po_quantity
-- complete:   qty_delivered >= po_quantity
+STATUS PROCUREMENT (join taex_reservasi + sap_po ON sap_po.PR = taex_reservasi.PR):
+- no-pr:      PR IS NULL atau PR = ''
+- pr-created: PR ada, belum ada PO
+- po-created: PO ada, Qty_Deliv = 0
+- partial:    Qty_Deliv > 0 tapi < Qty_PR
+- complete:   Qty_Deliv >= Qty_PR
 
 ATURAN QUERY PRISMA:
-- Kolom "order" WAJIB ditulis dengan tanda kutip ganda: "order"
+- Kolom "Order" WAJIB ditulis dengan tanda kutip ganda karena reserved word PostgreSQL
 - Selalu gunakan LIMIT maksimal 50
-- Untuk query PRISMA, generate SQL lalu panggil query_prisma(sql)
 - Keyword PRISMA: turnaround, TA, material, reservasi, PR, PO, kertas kerja, work order TA
 - JANGAN query tabel PRISMA ke database lokal — gunakan query_prisma()
 - Jika hasil data PRISMA lebih dari 10 baris atau user ingin melihat data lengkap/export Excel, arahkan user ke: <a href="https://monitoring-material-production.up.railway.app/" target="_blank">🔗 Buka Aplikasi PRISMA TA-ex</a>
