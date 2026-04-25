@@ -268,14 +268,14 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
 
     # Build messages dengan history
     prisma_prompt = PRISMA_SCHEMA_PROMPT or "(PRISMA schema belum tersedia — pastikan PRISMA_URL sudah dikonfigurasi)"
-_prompt = (CUSTOM_PROMPT
-    .replace("{table_info}", table_info)
-    .replace("{prisma_schema}", prisma_prompt)
-    .replace("{input}", "")
-    .replace("{{", "{")
-    .replace("}}", "}")
-)
-messages = [{"role": "system", "content": _prompt}]
+    _prompt = (CUSTOM_PROMPT
+        .replace("{table_info}", table_info)
+        .replace("{prisma_schema}", prisma_prompt)
+        .replace("{input}", "")
+        .replace("{{", "{")
+        .replace("}}", "}")
+    )
+    messages = [{"role": "system", "content": _prompt}]
     for msg in history:
         if isinstance(msg, HumanMessage):
             messages.append({"role": "user", "content": msg.content})
