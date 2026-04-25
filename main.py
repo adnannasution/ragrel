@@ -40,7 +40,36 @@ def query_prisma(sql: str) -> dict:
         return r.json()
     except Exception as e:
         return {"ok": False, "error": str(e)}
-# ─────────────────────────────────────────────────────────────
+
+def fetch_prisma_schema() -> str:
+    """Fetch schema dari PRISMA API dan format sebagai string untuk prompt."""
+    if not PRISMA_URL:
+        return ""
+    try:
+        r = requests.get(
+            f"{PRISMA_URL}/chatbot/schema",
+            headers=PRISMA_HEADERS,
+            timeout=10
+        )
+        data = r.json()
+        tables = data.get("allowed_tables", {})
+        if not tables:
+            return ""
+        lines = ["SCHEMA PRISMA TA-ex (struktur tabel aktual dari API):"]
+        for table_name, info in tables.items():
+            desc = info.get("description", "")
+            cols = info.get("columns", {})
+            lines.append(f"\nTabel: {table_name} — {desc}")
+            for col, col_desc in cols.items():
+                lines.append(f"  - {col}: {col_desc}")
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[PRISMA SCHEMA] Gagal fetch: {e}")
+        return ""
+
+# Fetch schema PRISMA saat startup (cached — tidak fetch ulang tiap request)
+PRISMA_SCHEMA = fetch_prisma_schema()
+print(f"[PRISMA SCHEMA] {'Loaded ✓' if PRISMA_SCHEMA else 'Not available (PRISMA_URL kosong atau error)'}")
 
 UPLOAD_REGISTRY = "upload_registry.json"
 
@@ -228,24 +257,29 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     PRISMA_KEYWORDS = [
         "turnaround", "ta-ex", "taex", "reservasi", "material ta",
         "purchase request", " pr ", "purchase order", " po ",
-        "kertas kerja", "kumpulan summary", "work order ta",
+        "kertas kerja", "kumpulan summary", "work order",
         "belum pr", "sudah pr", "delivery material", "stock onhand",
         "sap pr", "sap po", "procurement",
+        " wo ", "berdasarkan wo", "berdasarkan order", "per wo", "per order",
+        "jumlah material", "status material", "material berdasarkan",
     ]
     is_prisma = any(kw in question.lower() for kw in PRISMA_KEYWORDS)
 
     if is_prisma and PRISMA_URL:
         # ── PRISMA PATH: generate SQL → query_prisma ──
+        schema_info = PRISMA_SCHEMA if PRISMA_SCHEMA else (
+            "Tabel tersedia: taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order."
+        )
         sql_messages = messages + [{"role": "user", "content": (
             f"Berikan HANYA query SQL PostgreSQL yang valid untuk pertanyaan berikut "
-            f"menggunakan tabel PRISMA TA-ex. "
-            f"Tabel tersedia: taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order. "
+            f"menggunakan tabel PRISMA TA-ex.\n\n"
+            f"{schema_info}\n\n"
             f"ATURAN WAJIB:\n"
-            f"1. Kolom 'order' SELALU ditulis dengan tanda kutip ganda: \"order\"\n"
+            f"1. Kolom 'Order' SELALU ditulis dengan tanda kutip ganda: \"Order\"\n"
             f"2. Selalu tambahkan LIMIT 50 di akhir query\n"
-            f"3. Untuk hitung yang sudah PR: WHERE pr IS NOT NULL AND pr != ''\n"
-            f"4. Untuk hitung yang belum PR: WHERE pr IS NULL OR pr = ''\n"
-            f"5. Untuk status PO: JOIN sap_po ON sap_po.purchreq = taex_reservasi.pr\n"
+            f"3. Untuk hitung yang sudah PR: WHERE \"PR\" IS NOT NULL AND \"PR\" != ''\n"
+            f"4. Untuk hitung yang belum PR: WHERE \"PR\" IS NULL OR \"PR\" = ''\n"
+            f"5. Untuk status PO: JOIN sap_po ON sap_po.\"PR\" = taex_reservasi.\"PR\"\n"
             f"6. Gunakan COUNT(*) atau COUNT(DISTINCT ...) untuk agregasi\n"
             f"7. HANYA output SQL murni, tanpa penjelasan, tanpa markdown, tanpa backtick\n"
             f"\nPertanyaan: {question}"
