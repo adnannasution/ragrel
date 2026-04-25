@@ -227,9 +227,9 @@ ATURAN GRAFIK — WAJIB DIIKUTI:
   * radar        → perbandingan multi-dimensi antar entitas
   * polarArea    → distribusi dengan penekanan visual magnitude
 - Format grafik:
-  Single dataset:  [CHART] {"type": "bar", "dataset_label": "Label", "labels": ["A","B"], "data": [10,20]} [/CHART]
-  Multi-dataset:   [CHART] {"type": "bar", "labels": ["RU II","RU III"], "datasets": [{"label": "RKAP", "data": [100,200]}, {"label": "AKTUAL", "data": [90,210]}]} [/CHART]
-  Scatter plot:    [CHART] {"type": "scatter", "datasets": [{"label": "Label", "data": [{"x": 10, "y": 20}, {"x": 15, "y": 30}]}]} [/CHART]
+  Single dataset:  [CHART] {{"type": "bar", "dataset_label": "Label", "labels": ["A","B"], "data": [10,20]}} [/CHART]
+  Multi-dataset:   [CHART] {{"type": "bar", "labels": ["RU II","RU III"], "datasets": [{{"label": "RKAP", "data": [100,200]}}, {{"label": "AKTUAL", "data": [90,210]}}]}} [/CHART]
+  Scatter plot:    [CHART] {{"type": "scatter", "datasets": [{{"label": "Label", "data": [{{"x": 10, "y": 20}}, {{"x": 15, "y": 30}}]}}]}} [/CHART]
 - Scatter plot cocok untuk: korelasi antar dua variabel numerik (misal rem_life_years vs last_measured_thickness, anggaran vs jumlah bad actor per RU, dsb)
 
 Question: {input}"""
@@ -268,7 +268,14 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
 
     # Build messages dengan history
     prisma_prompt = PRISMA_SCHEMA_PROMPT or "(PRISMA schema belum tersedia — pastikan PRISMA_URL sudah dikonfigurasi)"
-    messages = [{"role": "system", "content": CUSTOM_PROMPT.replace("{table_info}", table_info).replace("{prisma_schema}", prisma_prompt).replace("{input}", "")}]
+_prompt = (CUSTOM_PROMPT
+    .replace("{table_info}", table_info)
+    .replace("{prisma_schema}", prisma_prompt)
+    .replace("{input}", "")
+    .replace("{{", "{")
+    .replace("}}", "}")
+)
+messages = [{"role": "system", "content": _prompt}]
     for msg in history:
         if isinstance(msg, HumanMessage):
             messages.append({"role": "user", "content": msg.content})
