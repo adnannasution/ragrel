@@ -292,15 +292,14 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     # ── Deteksi PRISMA via LLM — tidak pakai keyword hardcoded ──
     # LLM cek apakah pertanyaan berkaitan dengan tabel PRISMA berdasarkan schema
     prisma_table_list = ", ".join(PRISMA_TABLES) if PRISMA_TABLES else "taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order"
-    prisma_check = await loop.run_in_executor(None, lambda: llm.invoke([{
-        "role": "user",
-        "content": (
-            f"Apakah pertanyaan berikut berkaitan dengan data dari tabel PRISMA TA-ex berikut: "
-            f"{prisma_table_list}? "
-            f"Tabel ini berisi data procurement material turnaround kilang (reservasi, PR, PO, work order). "
-            f"Jawab hanya YA atau TIDAK.\n\nPertanyaan: {question}"
-        )
-    }]))
+prisma_check = await loop.run_in_executor(None, lambda: llm.invoke([{
+    "role": "user",
+    "content": (
+        f"Berdasarkan schema PRISMA TA-ex berikut:\n{PRISMA_SCHEMA_PROMPT}\n\n"
+        f"Apakah pertanyaan berikut berkaitan dengan data di PRISMA tersebut? "
+        f"Jawab hanya YA atau TIDAK.\n\nPertanyaan: {question}"
+    )
+}]))
     is_prisma = "YA" in prisma_check.content.strip().upper()
 
     if is_prisma and PRISMA_URL:
