@@ -311,6 +311,11 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         "role": "user",
         "content": (
             f"Berdasarkan schema PRISMA TA-ex berikut:\n{PRISMA_SCHEMA_PROMPT}\n\n"
+            f"PENTING: Jawab YA hanya jika pertanyaan EKSPLISIT menyebut salah satu dari: "
+            f"reservasi, material TA, Purchase Request, PR, Purchase Order, PO, "
+            f"work order turnaround, kertas kerja, delivery material, stock material TA. "
+            f"Jika pertanyaan hanya menyebut 'laporan', 'data', 'status', 'berapa', "
+            f"'tampilkan' tanpa konteks procurement/pengadaan TA → jawab TIDAK. "
             f"Apakah pertanyaan berikut berkaitan dengan data di PRISMA tersebut? "
             f"Jawab hanya YA atau TIDAK.\n\nPertanyaan: {question}"
         )
