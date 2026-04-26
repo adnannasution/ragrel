@@ -48,6 +48,93 @@
         @keyframes spin { to { transform:rotate(360deg); } }
 
         .elapsed { font-size:0.7rem; color:#cbd5e1; margin-left:auto; font-variant-numeric: tabular-nums; }
+
+        /* ── Fullscreen Modal ── */
+        #fullscreenModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            animation: fadeIn 0.2s ease;
+        }
+        #fullscreenModal.active { display: flex; }
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+
+        #fullscreenInner {
+            background: #fff;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 1200px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+        }
+        #fullscreenHeader {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+            border-radius: 16px 16px 0 0;
+            flex-shrink: 0;
+        }
+        #fullscreenTitle { font-weight: 700; font-size: 0.9rem; color: #334155; }
+        #fullscreenClose {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: #e2e8f0;
+            color: #475569;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        #fullscreenClose:hover { background: #cbd5e1; }
+        #fullscreenBody {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+        }
+        #fullscreenBody canvas { max-height: 70vh !important; width: 100% !important; }
+        #fullscreenBody table {
+            width: 100%; border-collapse: collapse; font-size: 0.83rem;
+            border: 1px solid #e2e8f0;
+        }
+        #fullscreenBody th {
+            background: #4f46e5; color: #fff; padding: 10px 12px; text-align: left;
+            position: sticky; top: 0; z-index: 1;
+        }
+        #fullscreenBody td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        #fullscreenBody tr:hover td { background: #f8fafc; }
+
+        /* expand button on chart/table wrapper */
+        .expand-btn {
+            position: absolute;
+            top: 6px; right: 6px;
+            width: 28px; height: 28px;
+            background: rgba(79,70,229,0.12);
+            border: 1px solid rgba(79,70,229,0.3);
+            border-radius: 6px;
+            color: #4f46e5;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.15s;
+            z-index: 10;
+        }
+        .expand-btn:hover { background: rgba(79,70,229,0.22); }
+
+        .chart-wrapper, .table-wrapper {
+            position: relative;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans h-screen flex flex-col">
@@ -355,6 +442,17 @@
         </div>
     </div>
 
+    <!-- Fullscreen Modal -->
+    <div id="fullscreenModal">
+        <div id="fullscreenInner">
+            <div id="fullscreenHeader">
+                <span id="fullscreenTitle">Detail</span>
+                <button id="fullscreenClose" onclick="closeFullscreen()" title="Tutup (Esc)">✕</button>
+            </div>
+            <div id="fullscreenBody"></div>
+        </div>
+    </div>
+
     <script>
     const chatbox = document.getElementById('chatbox');
     let selectedDataType = '';
@@ -556,7 +654,7 @@
             <div class="${isAI ? 'ai-msg bg-white border text-gray-700 ai-bubble' : 'bg-indigo-600 text-white user-bubble'} p-4 shadow-sm text-sm leading-relaxed" style="max-width:80%">
                 <div>${finalContent}</div>
                 ${downloadBtnHtml(downloadKeys)}
-                ${chartData ? `<div class="mt-4 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200"><canvas id="${canvasId}" style="max-height:300px"></canvas></div>` : ''}
+                ${chartData ? `<div class="chart-wrapper mt-4 p-2 bg-gray-50 rounded-lg border border-dashed border-gray-200"><button class="expand-btn" onclick="expandChart('${canvasId}')" title="Perbesar chart"><i class="fas fa-expand-alt"></i></button><canvas id="${canvasId}" style="max-height:300px"></canvas></div>` : ''}
             </div>
             ${!isAI ? '<div class="bg-gray-200 text-gray-600 p-2 rounded-full h-10 w-10 flex items-center justify-center flex-shrink-0 text-sm"><i class="fas fa-user"></i></div>' : ''}
         `;
@@ -566,7 +664,7 @@
             const chartType = chartData.type || 'bar';
             const isPie     = ['pie','doughnut','polarArea'].includes(chartType);
             const isScatter = chartType === 'scatter';
-            new Chart(msgDiv.querySelector('canvas'), {
+            const chartInstance = new Chart(msgDiv.querySelector('canvas'), {
                 type: chartType,
                 data: {
                     labels: isScatter ? undefined : chartData.labels,
@@ -584,6 +682,31 @@
                         }
                     } : {}),
                 }
+            });
+            // Store chart config for fullscreen re-render
+            msgDiv.querySelector('canvas').dataset.chartConfig = JSON.stringify({
+                type: chartType, isPie, isScatter,
+                labels: chartData.labels,
+                datasets: buildDatasets(chartData),
+                x_label: chartData.x_label,
+                y_label: chartData.y_label,
+            });
+        }
+
+        // Wrap tables with expand button
+        if (isAI) {
+            msgDiv.querySelectorAll('table').forEach((tbl, i) => {
+                if (tbl.closest('.table-wrapper')) return;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-wrapper';
+                tbl.parentNode.insertBefore(wrapper, tbl);
+                wrapper.appendChild(tbl);
+                const btn = document.createElement('button');
+                btn.className = 'expand-btn';
+                btn.title = 'Perbesar tabel';
+                btn.innerHTML = '<i class="fas fa-expand-alt"></i>';
+                btn.onclick = () => expandTable(tbl);
+                wrapper.appendChild(btn);
             });
         }
         chatbox.scrollTop = chatbox.scrollHeight;
@@ -832,6 +955,70 @@
     document.getElementById('userInput').addEventListener('keypress', e => {
         if (e.key === 'Enter') sendQuestion();
     });
+
+    // ── FULLSCREEN ─────────────────────────────────────────────────────────────
+    let _fsChartInstance = null;
+
+    function openFullscreen(title) {
+        document.getElementById('fullscreenTitle').textContent = title;
+        document.getElementById('fullscreenModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeFullscreen() {
+        document.getElementById('fullscreenModal').classList.remove('active');
+        document.getElementById('fullscreenBody').innerHTML = '';
+        document.body.style.overflow = '';
+        if (_fsChartInstance) { _fsChartInstance.destroy(); _fsChartInstance = null; }
+    }
+
+    document.getElementById('fullscreenModal').addEventListener('click', function(e) {
+        if (e.target === this) closeFullscreen();
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeFullscreen();
+    });
+
+    function expandChart(canvasId) {
+        const origCanvas = document.getElementById(canvasId);
+        if (!origCanvas) return;
+        const config = JSON.parse(origCanvas.dataset.chartConfig || 'null');
+        if (!config) return;
+
+        openFullscreen('📊 Chart — Fullscreen');
+        const body = document.getElementById('fullscreenBody');
+        const newCanvasId = 'fs-canvas-' + Date.now();
+        body.innerHTML = `<canvas id="${newCanvasId}"></canvas>`;
+
+        const { type, isPie, isScatter, labels, datasets, x_label, y_label } = config;
+        _fsChartInstance = new Chart(document.getElementById(newCanvasId), {
+            type,
+            data: { labels: isScatter ? undefined : labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: true } },
+                ...(isPie || isScatter ? {} : { scales: { y: { beginAtZero: true } } }),
+                ...(isScatter ? {
+                    scales: {
+                        x: { title: { display: true, text: x_label || 'X' } },
+                        y: { title: { display: true, text: y_label || 'Y' } },
+                    }
+                } : {}),
+            }
+        });
+    }
+
+    function expandTable(tbl) {
+        // Count columns for title
+        const headers = Array.from(tbl.querySelectorAll('th')).map(th => th.textContent.trim());
+        const rowCount = tbl.querySelectorAll('tbody tr').length;
+        openFullscreen(`📋 Tabel — ${rowCount} baris · ${headers.length} kolom`);
+        const body = document.getElementById('fullscreenBody');
+        body.innerHTML = '';
+        body.appendChild(tbl.cloneNode(true));
+    }
     </script>
 </body>
 </html>
