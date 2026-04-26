@@ -26,50 +26,6 @@ PRISMA_URL      = os.getenv("PRISMA_URL", "")
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY", "")
 PRISMA_HEADERS  = {"x-chatbot-key": CHATBOT_API_KEY}
 
-def fetch_prisma_schema() -> dict:
-    """Fetch schema langsung dari PRISMA saat startup — sekali saja."""
-    if not PRISMA_URL:
-        return {}
-    try:
-        r = requests.get(f"{PRISMA_URL}/chatbot/schema", headers=PRISMA_HEADERS, timeout=15)
-        return r.json()
-    except Exception as e:
-        print(f"[PRISMA] Gagal fetch schema: {e}")
-        return {}
-
-def build_prisma_prompt(schema: dict) -> str:
-    """Bangun deskripsi schema PRISMA untuk diinjeksi ke CUSTOM_PROMPT."""
-    if not schema or "tables" not in schema:
-        return ""
-    lines = [
-        "TABEL EKSTERNAL PRISMA TA-ex (data procurement material Turnaround):",
-        "Untuk pertanyaan tentang material TA, reservasi, PR, PO, work order turnaround — generate SQL lalu query ke PRISMA.",
-        "Tabel tersedia di PRISMA (BUKAN di database lokal):",
-    ]
-    for tbl_name, tbl in schema.get("tables", {}).items():
-        col_names = tbl.get("column_names", [])
-        desc      = tbl.get("description", "")
-        cols      = [f'"{c}"' if c == "order" else c for c in col_names]
-        lines.append(f"- {tbl_name}: {desc}")
-        lines.append(f"  kolom: {', '.join(cols)}")
-    if "join_hints" in schema:
-        lines.append("\nJOIN HINTS:")
-        for k, v in schema["join_hints"].items():
-            lines.append(f"  {k}: {v}")
-    if "status_logic" in schema:
-        lines.append("\nSTATUS PROCUREMENT:")
-        for k, v in schema["status_logic"].items():
-            lines.append(f"  {k}: {v}")
-    lines += [
-        "",
-        "ATURAN QUERY PRISMA:",
-        '- Kolom "order" WAJIB ditulis dengan tanda kutip ganda: "order"',
-        "- Selalu gunakan LIMIT maksimal 50",
-        "- JANGAN query tabel PRISMA ke database lokal",
-        '- Jika data PRISMA > 10 baris, arahkan ke: <a href="https://monitoring-material-production.up.railway.app/" target="_blank">🔗 Buka Aplikasi PRISMA TA-ex</a>',
-    ]
-    return "\n".join(lines)
-
 def query_prisma(sql: str) -> dict:
     """Kirim SQL ke PRISMA TA-ex, return hasil JSON."""
     if not PRISMA_URL:
@@ -84,14 +40,6 @@ def query_prisma(sql: str) -> dict:
         return r.json()
     except Exception as e:
         return {"ok": False, "error": str(e)}
-
-# Fetch schema saat startup
-PRISMA_SCHEMA        = fetch_prisma_schema()
-PRISMA_SCHEMA_PROMPT = build_prisma_prompt(PRISMA_SCHEMA)
-PRISMA_TABLES        = set(PRISMA_SCHEMA.get("allowed_tables", [
-    "taex_reservasi", "prisma_reservasi", "kumpulan_summary",
-    "sap_pr", "sap_po", "work_order"
-]))
 # ─────────────────────────────────────────────────────────────
 
 UPLOAD_REGISTRY = "upload_registry.json"
@@ -209,8 +157,6 @@ ATURAN QUERY PRISMA:
 - JANGAN query tabel PRISMA ke database lokal — gunakan query_prisma()
 - Jika hasil data PRISMA lebih dari 10 baris atau user ingin melihat data lengkap/export Excel, arahkan user ke: <a href="https://monitoring-material-production.up.railway.app/" target="_blank">🔗 Buka Aplikasi PRISMA TA-ex</a>
 
-{prisma_schema}
-
 ATURAN FORMAT JAWABAN:
 1. Gunakan narasi/list (<ul><li>) untuk data sedikit (1-3 baris).
 2. Gunakan HTML <table border='1'> untuk data banyak atau perbandingan.
@@ -267,33 +213,18 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     table_info = db_engine.get_table_info()
 
     # Build messages dengan history
-    prisma_prompt = PRISMA_SCHEMA_PROMPT or ""
-    messages = [{"role": "system", "content": CUSTOM_PROMPT.replace("{table_info}", table_info).replace("{prisma_schema}", prisma_prompt).replace("{input}", "")}]
+    messages = [{"role": "system", "content": CUSTOM_PROMPT.replace("{table_info}", table_info).replace("{input}", "")}]
     for msg in history:
         if isinstance(msg, HumanMessage):
             messages.append({"role": "user", "content": msg.content})
         elif isinstance(msg, AIMessage):
             messages.append({"role": "assistant", "content": msg.content})
 
-    # ── Cek relevansi pertanyaan via LLM ──
-    relevance_check = await loop.run_in_executor(None, lambda: llm.invoke([{
-        "role": "user",
-        "content": (
-            "Apakah pertanyaan berikut relevan dengan salah satu topik ini: "
-            "maintenance kilang, procurement material, turnaround, inspeksi equipment, "
-            "anggaran maintenance, monitoring operasi refinery, atau data teknis kilang minyak? "
-            "Jawab hanya dengan satu kata: YA atau TIDAK.\n\n"
-            f"Pertanyaan: {question}"
-        )
-    }]))
-    if "TIDAK" in relevance_check.content.strip().upper():
-        return ("⚠️ Maaf, saya hanya dapat membantu <b>analisis data maintenance dan operasional kilang</b>. "
-                "Silakan ajukan pertanyaan yang berkaitan dengan data yang tersedia.")
 
-    # Step 1: Generate SQL — LLM tahu tabel PRISMA dari schema di prompt
+    # Step 1: Generate SQL — LLM tahu tabel PRISMA & lokal dari prompt
     sql_messages = messages + [{"role": "user", "content": (
         f"Berikan HANYA query SQL PostgreSQL yang valid untuk: {question}.\n"
-        f"ATURAN: Kolom 'order' pakai tanda kutip ganda. Selalu LIMIT 50. "
+        f"ATURAN: Kolom 'order' pakai tanda kutip ganda jika ada. Selalu LIMIT 50. "
         f"Tanpa penjelasan, tanpa markdown, tanpa backtick."
     )}]
     sql_response = await loop.run_in_executor(None, lambda: llm.invoke(sql_messages))
@@ -302,7 +233,6 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     # Step 2: Routing — lokal dulu, PRISMA hanya kalau tabel tidak ada di lokal
     import re as _re
 
-    # Tabel yang ada di database lokal
     LOCAL_TABLES = {
         "anggaran_maintenance", "pipeline_inspection", "rotor_monitoring",
         "atg_monitoring", "metering_monitoring", "bad_actor_monitoring",
@@ -316,13 +246,10 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
 
     tables_in_sql = set(_re.findall(r'(?:FROM|JOIN)\s+([\w"]+)', sql_query, _re.IGNORECASE))
     tables_clean  = {t.strip('"').lower() for t in tables_in_sql}
-
-    # Hanya ke PRISMA kalau tabel di SQL BUKAN tabel lokal DAN ada di PRISMA_TABLES
     is_local_sql  = bool(tables_clean & LOCAL_TABLES)
     is_prisma_sql = bool(tables_clean & PRISMA_TABLES) and not is_local_sql and bool(PRISMA_URL)
 
     if is_prisma_sql:
-        # Jalur PRISMA — kirim SQL ke PRISMA API
         prisma_result = await loop.run_in_executor(None, lambda: query_prisma(sql_query))
         if prisma_result.get("ok"):
             rows = prisma_result.get("rows", 0)
@@ -334,11 +261,11 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
             print(f"[PRISMA ERROR] Error: {err}")
             db_result = f"Gagal query PRISMA. Error: {err}"
     else:
-        # Jalur lokal — query database lokal
         try:
             db_result = await loop.run_in_executor(None, lambda: db_engine.run(sql_query))
         except Exception as e:
             db_result = f"Query error: {str(e)}"
+
 
     # Step 3: Generate jawaban final dengan hasil query + history
     answer_messages = messages + [
