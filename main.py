@@ -307,11 +307,44 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         elif isinstance(msg, AIMessage):
             messages.append({"role": "assistant", "content": msg.content})
 
-    # Relevansi check dinonaktifkan — LLM bebas jawab semua pertanyaan
+    # ── Cek 1: Apakah sapaan/pertanyaan umum? ──
+    greeting_check = await loop.run_in_executor(None, lambda: llm.invoke([{
+        "role": "user",
+        "content": (
+            f"Apakah pertanyaan berikut adalah sapaan, ucapan terima kasih, "
+            f"pertanyaan tentang kemampuan AI, atau obrolan umum yang tidak butuh query database? "
+            f"Jawab hanya YA atau TIDAK.\n\nPertanyaan: {question}"
+        )
+    }]))
+    is_greeting = "YA" in greeting_check.content.strip().upper()
 
-    # Deteksi apakah pertanyaan tentang data PRISMA TA-ex
-    # ── Deteksi PRISMA via LLM — tidak pakai keyword hardcoded ──
-    # LLM cek apakah pertanyaan berkaitan dengan tabel PRISMA berdasarkan schema
+    if is_greeting:
+        greeting_response = await loop.run_in_executor(None, lambda: llm.invoke(
+            messages + [{"role": "user", "content": question}]
+        ))
+        return greeting_response.content
+
+    # ── Cek 2: Apakah pertanyaan sudah spesifik menyebut nama tabel? ──
+    clarify_check = await loop.run_in_executor(None, lambda: llm.invoke([{
+        "role": "user",
+        "content": (
+            f"Daftar nama tabel yang tersedia: Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, PAF, "
+            f"Zero Clamp, Power Stream, Anggaran, TKDN, RCPS, BOC, Readiness Jetty, Readiness Tank, "
+            f"Readiness SPM, Workplan Jetty, Workplan Tank, SPM Workplan, Inspection Plan, "
+            f"Monitoring Operasi, reservasi, PR, PO, material TA.\n\n"
+            f"Apakah pertanyaan berikut sudah menyebut salah satu nama tabel di atas secara eksplisit? "
+            f"CATATAN: Kata 'ru', 'refinery unit', 'kilang', 'equipment', 'laporan', 'data', "
+            f"'status', 'berapa', 'jumlah', 'tampilkan' BUKAN nama tabel — jika hanya menyebut "
+            f"kata-kata itu tanpa nama tabel spesifik → jawab TIDAK. "
+            f"Jawab hanya YA atau TIDAK.\n\nPertanyaan: {question}"
+        )
+    }]))
+    needs_clarify = "TIDAK" in clarify_check.content.strip().upper()
+
+    if needs_clarify:
+        return "Laporan apa yang kamu maksud? 😊 Misalnya: Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, BOC, Anggaran, atau yang lain?"
+
+    # ── Cek 3: Deteksi PRISMA via LLM ──
     prisma_table_list = ", ".join(PRISMA_TABLES) if PRISMA_TABLES else "taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order"
     prisma_check = await loop.run_in_executor(None, lambda: llm.invoke([{
         "role": "user",
