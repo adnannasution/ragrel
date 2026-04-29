@@ -389,6 +389,18 @@
                         <div class="stat-rows" id="stat-rows-spm_workplan"></div>
                         <div class="stat-upd"  id="stat-upd-spm_workplan"></div>
                     </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="irkap_program" onclick="selectType('irkap_program', this)">
+                        <div class="text-xl mb-1">📋</div>
+                        <div class="text-xs font-semibold text-gray-700">IRKAP Program</div>
+                        <div class="stat-rows" id="stat-rows-irkap_program"></div>
+                        <div class="stat-upd"  id="stat-upd-irkap_program"></div>
+                    </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="irkap_actual" onclick="selectType('irkap_actual', this)">
+                        <div class="text-xl mb-1">📊</div>
+                        <div class="text-xs font-semibold text-gray-700">IRKAP Actual</div>
+                        <div class="stat-rows" id="stat-rows-irkap_actual"></div>
+                        <div class="stat-upd"  id="stat-upd-irkap_actual"></div>
+                    </div>
                 </div>
 
                 <!-- Upload Progress -->
@@ -464,7 +476,8 @@
     const APPEND_SUPPORTED_TYPES = new Set([
         'readiness_jetty', 'workplan_jetty',
         'readiness_tank', 'workplan_tank',
-        'readiness_spm', 'spm_workplan'
+        'readiness_spm', 'spm_workplan',
+        'irkap_program', 'irkap_actual'
     ]);
 
     function selectType(type, el) {

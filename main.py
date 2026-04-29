@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan, IrkapProgram, IrkapActual
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -178,7 +178,7 @@ ATURAN QUERY SQL:
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
 - PENTING: Jangan pernah query SELECT * tanpa LIMIT. Selalu gunakan agregasi, filter, atau LIMIT 20.
 - Jika pertanyaan meminta "tampilkan semua" data ribuan baris, buat RINGKASAN/AGREGASI saja lalu tawarkan download dengan format: [DOWNLOAD:key_tabel] — contoh: [DOWNLOAD:pipeline] atau [DOWNLOAD:atg]. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan.
-- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut.
+- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan, irkap_program, irkap_actual.
 - DETEKSI PERTANYAAN TIDAK PRODUKTIF: Jika user meminta salah satu dari berikut, JANGAN query — langsung tolak dengan sopan dan arahkan ke pertanyaan analisis yang lebih tepat:
   * "tampilkan semua", "list semua", "show all", "lihat semua", "ceritakan semua"
   * "tampilkan seluruh isi tabel", "dump data", "export semua"
@@ -212,6 +212,8 @@ PENGECUALIAN — tetap jawab dengan ramah untuk:
 - Untuk workplan_tank: workplan perbaikan tangki — kolom unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
 - Untuk readiness_spm: kesiapan operasional SPM — kolom refinery_unit, tag_no, status_operation, status_laik_operasi, expired_laik_operasi, status_ijin_spl, status_mbc, status_lds, status_mooring_hawser, status_floating_hose, status_cathodic_spl, month_update.
 - Untuk spm_workplan: workplan perbaikan SPM — kolom refinery_unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
+- Untuk irkap_program: daftar program kerja IRKAP 2024 — kolom refinery_unit, disiplin, kategori_rkap, material_jasa, highlevel_planning_note, no_program_kerja, equipment_tag_no, type_equipment, program_kerja, step_plan_today, step_actual_today, status_step, start_plan, finish_plan, status_prognosa, kelompok_biaya, nilai_anggaran_idr, nilai_anggaran_usd, top_risk, asset_integrity. Tampilkan nilai_anggaran_idr dengan format Rp dan pemisah ribuan, nilai_anggaran_usd dengan format USD.
+- Untuk irkap_actual: realisasi step pelaksanaan IRKAP — kolom no_program, kategori_rkap, refinery_unit, area, unit_process, tag_no, program_kerja, disiplin, anggaran_idr, anggaran_usd, material_jasa, probability_class, ram_criticality, current_step, status_step, status_prognosa, serta kolom per step (actual_start1-15, actual_finish1-15, comp1-15) dan nomor referensi (notif_no, wo_no, ro_no, pr, rfq, po, gr_no, gi_no, sa_no). Gunakan status_prognosa ('On Fiscal Year', 'Next Year', 'Closed', dsb) dan current_step untuk analisis progres.
 
 {prisma_schema}
 
@@ -225,7 +227,7 @@ ATURAN KLARIFIKASI — WAJIB DIIKUTI:
 - Nama tabel spesifik yang diakui: Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, PAF,
   Zero Clamp, Power Stream, Anggaran, TKDN, RCPS, BOC, Readiness Jetty, Readiness Tank,
   Readiness SPM, Workplan Jetty, Workplan Tank, SPM Workplan, Inspection Plan,
-  Monitoring Operasi, reservasi, PR, PO, material TA (PRISMA).
+  Monitoring Operasi, IRKAP, IRKAP Program, IRKAP Actual, reservasi, PR, PO, material TA (PRISMA).
 - Jika tidak ada satupun nama tabel di atas disebut → STOP TOTAL,
   JANGAN BUAT SQL QUERY APAPUN, langsung balas dengan 1 kalimat santai saja.
   Contoh balasan: "Laporan apa yang kamu maksud? 😊 Pipeline, ATG, Metering, Rotor, ICU, atau yang lain?"
@@ -317,7 +319,7 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
             f"Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, PAF, Zero Clamp, Power Stream, "
             f"Anggaran, TKDN, RCPS, BOC, Readiness Jetty, Readiness Tank, Readiness SPM, "
             f"Workplan Jetty, Workplan Tank, SPM Workplan, Inspection Plan, Monitoring Operasi, "
-            f"reservasi, PR, PO, material TA, turnaround\n"
+            f"IRKAP, IRKAP Program, IRKAP Actual, reservasi, PR, PO, material TA, turnaround\n"
             f"3. AMBIGU — jika tidak menyebut nama tabel spesifik apapun\n"
             f"CATATAN: Kata 'ru', 'refinery unit', 'kilang', 'equipment', 'laporan', 'data', "
             f"'status', 'berapa', 'jumlah', 'tampilkan' BUKAN nama tabel — jika hanya menyebut "
@@ -507,11 +509,14 @@ async def upload_sync(
             "workplan_tank":   sync_workplan_tank,
             "readiness_spm":   sync_readiness_spm,
             "spm_workplan":    sync_spm_workplan,
+            "irkap_program":   sync_irkap_program,
+            "irkap_actual":    sync_irkap_actual,
         }
         APPEND_SUPPORTED = {
             "readiness_jetty", "workplan_jetty",
             "readiness_tank", "workplan_tank",
             "readiness_spm", "spm_workplan",
+            "irkap_program", "irkap_actual",
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -741,6 +746,30 @@ def _safe(val) -> str:
         pass
     return str(val).strip()
 
+def _safe_num(val):
+    """Konversi ke Decimal/float untuk kolom Numeric — return None jika kosong."""
+    if val is None:
+        return None
+    try:
+        import pandas as _pd
+        if _pd.isna(val):
+            return None
+    except Exception:
+        pass
+    try:
+        return float(val)
+    except Exception:
+        return None
+
+def _safe_float(val):
+    """Konversi ke float — return None jika kosong."""
+    return _safe_num(val)
+
+def _safe_int(val):
+    """Konversi ke integer — return None jika kosong."""
+    n = _safe_num(val)
+    return int(n) if n is not None else None
+
 def sync_icu(file_location: str, db: Session):
     # Baca dengan header=0, lalu rename kolom duplikat ke nama aslinya (hapus suffix _0, _1, dst)
     df = pd.read_excel(file_location, sheet_name=0, header=0)
@@ -906,6 +935,8 @@ EXPORT_TABLES = {
     "workplan_tank":   ("workplan_tank",               "Workplan Tank"),
     "readiness_spm":   ("readiness_spm",               "Readiness SPM"),
     "spm_workplan":    ("spm_workplan",                "SPM Workplan"),
+    "irkap_program":   ("irkap_program",               "IRKAP Program"),
+    "irkap_actual":    ("irkap_actual",                "IRKAP Actual"),
 }
 
 @app.get("/export")
@@ -944,7 +975,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan", "irkap_program", "irkap_actual"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -973,6 +1004,8 @@ def table_stats(db: Session = Depends(get_db)):
         "workplan_tank":   "workplan_tank",
         "readiness_spm":   "readiness_spm",
         "spm_workplan":    "spm_workplan",
+        "irkap_program":   "irkap_program",
+        "irkap_actual":    "irkap_actual",
     }
     return {
         k: {
@@ -1619,3 +1652,147 @@ def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
     db.commit()
     action = "ditambahkan" if mode == "append" else "diupdate"
     return {"message": f"✅ SPM Workplan berhasil {action}! ({count} records)"}
+def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
+    df = pd.read_excel(file_location, header=2)
+    if mode == "replace":
+        db.query(IrkapProgram).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(IrkapProgram(
+            refinery_unit               = _safe(row.get('Refinery Unit')),
+            disiplin                    = _safe(row.get('Disiplin')),
+            kategori_rkap               = _safe(row.get('Kategori RKAP')),
+            material_jasa               = _safe(row.get('Material/Jasa')),
+            highlevel_planning_note     = _safe(row.get('HighLevel  PlanningNote')),
+            referensi_prokja_sebelumnya = _safe(row.get('Referensi Nomor Prokja Sebelumnya')),
+            no_program_kerja            = _safe(row.get('No Program Kerja')),
+            equipment_tag_no            = _safe(row.get('Equipment/Tag No')),
+            type_equipment              = _safe(row.get('Type Equipment')),
+            detail_type_equipment       = _safe(row.get('Detail Type Equipment')),
+            program_kerja               = _safe(row.get('ProgramKerja')),
+            step_plan_today             = _safe(row.get('Step Plan (Today)')),
+            detail_step_plan_today      = _safe(row.get('Detail Step Plan (Today)')),
+            step_actual_today           = _safe(row.get('Step Actual (Today)')),
+            detail_step_actual_today    = _safe(row.get('Detail Step Actual (Today)')),
+            status_step                 = _safe(row.get('Status Step')),
+            start_plan                  = _to_date_str(row.get('Start Plan (Overall Project)')),
+            finish_plan                 = _to_date_str(row.get('Finish Plan (Overall Project)')),
+            status_prognosa             = _safe(row.get('Status Prognosa')),
+            kelompok_biaya              = _safe(row.get('KelompokBiaya')),
+            nilai_anggaran_idr          = _safe_num(row.get('Nilai Anggaran Plan (IDR)')),
+            nilai_anggaran_usd          = _safe_num(row.get('Nilai Anggaran Plan (USD)')),
+            top_risk                    = _safe(row.get('Top Risk')),
+            asset_integrity             = _safe(row.get('Asset Integrity')),
+        ))
+        count += 1
+    db.commit()
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ IRKAP Program berhasil {action}! ({count} records)"}
+
+def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
+    df = pd.read_excel(file_location, header=1)
+    if mode == "replace":
+        db.query(IrkapActual).delete()
+    count = 0
+    for _, row in df.iterrows():
+        db.add(IrkapActual(
+            no                           = _safe_int(row.get('NO')),
+            no_program                   = _safe(row.get('NO PROGRAM')),
+            kategori_rkap                = _safe(row.get('KATEGORI RKAP')),
+            program_asset_integrity      = _safe(row.get('PROGRAM ASSET INTEGRITY')),
+            refinery_unit                = _safe(row.get('REFINERY UNIT')),
+            area                         = _safe(row.get('AREA')),
+            unit_process                 = _safe(row.get('UNIT PROCESS')),
+            tag_no                       = _safe(row.get('TAG NO')),
+            dasar_pengusulan             = _safe(row.get('DASAR PENGUSULAN PROGRAM KERJA')),
+            rekomendasi                  = _safe(row.get('REKOMENDASI')),
+            program_kerja                = _safe(row.get('PROGRAM KERJA')),
+            disiplin                     = _safe(row.get('DISIPLIN')),
+            kategory_trigger             = _safe(row.get('KATEGORY TRIGGER')),
+            kelompok_sasaran_rk          = _safe(row.get('KELOMPOK SASARAN RK')),
+            kel_biaya                    = _safe(row.get('KEL.BIAYA')),
+            note                         = _safe(row.get('NOTE')),
+            release_type                 = _safe(row.get('RELEASE TYPE')),
+            jadwal_pelaksanaan           = _safe(row.get('JADWAL PELAKSANAAN')),
+            jadwal_cost                  = _safe(row.get('JADWAL COST')),
+            jadwal_cash                  = _safe(row.get('JADWAL CASH')),
+            strategy_penyelesaian        = _safe(row.get('STRATEGY PENYELESAIAN PEKERJAAN')),
+            failure_impact               = _safe(row.get('FAILURE IMPACT JIKA PROGRAM TIDAK DIJALANKAN')),
+            high_level_planning_note     = _safe(row.get('HIGH LEVEL PLANNING NOTE')),
+            referensi_prokja_sebelumnya  = _safe(row.get('REFERENSI PROGRAM KERJA SEBELUMNYA')),
+            cost_center                  = _safe(row.get('COST CENTER')),
+            cost_element                 = _safe(row.get('COST ELEMENT')),
+            wbs_number                   = _safe(row.get('WBS NUMBER')),
+            anggaran_idr                 = _safe_num(row.get('ANGGARAN IDR')),
+            anggaran_usd                 = _safe_num(row.get('ANGGARAN USD')),
+            anggaran_equivalent_idr      = _safe_num(row.get('ANGGARAN EQUIVALENT IDR')),
+            probability_class            = _safe(row.get('Probability Class')),
+            probability_likelyhood       = _safe(row.get('Probability Class_likely hood')),
+            economic_usd                 = _safe(row.get('ECONOMIC (USD)')),
+            health_safety                = _safe(row.get('HEALTH & SAFETY')),
+            environment                  = _safe(row.get('ENVIRONMENT')),
+            ram_criticality              = _safe(row.get('RAM CRITICALITY')),
+            material_jasa                = _safe(row.get('MATERIAL / JASA')),
+            sumber_harga                 = _safe(row.get('SUMBER HARGA')),
+            actual_start1                = _safe(row.get('ACTUAL START1')),
+            actual_finish1               = _safe(row.get('ACTUAL FINISH1')),
+            comp1                        = _safe_float(row.get('COMP 1')),
+            notif_no                     = _safe(row.get('NOTIF NO')),
+            actual_start2                = _safe(row.get('ACTUAL START2')),
+            actual_finish2               = _safe(row.get('ACTUAL FINISH2')),
+            comp2                        = _safe_float(row.get('COMP 2')),
+            actual_start3                = _safe(row.get('ACTUAL START3')),
+            actual_finish3               = _safe(row.get('ACTUAL FINISH3')),
+            comp3                        = _safe_float(row.get('COMP 3')),
+            wo_no                        = _safe(row.get('WO No')),
+            actual_start4                = _safe(row.get('ACTUAL START4')),
+            actual_finish4               = _safe(row.get('ACTUAL FINISH4')),
+            comp4                        = _safe_float(row.get('COMP 4')),
+            ro_no                        = _safe(row.get('RO No')),
+            actual_start5                = _safe(row.get('ACTUAL START5')),
+            actual_finish5               = _safe(row.get('ACTUAL FINISH5')),
+            comp5                        = _safe_float(row.get('COMP 5')),
+            actual_start6                = _safe(row.get('ACTUAL START6')),
+            actual_finish6               = _safe(row.get('ACTUAL FINISH6')),
+            comp6                        = _safe_float(row.get('COMP 6')),
+            pr                           = _safe(row.get('PR')),
+            actual_start7                = _safe(row.get('ACTUAL START7')),
+            actual_finish7               = _safe(row.get('ACTUAL FINISH7')),
+            comp7                        = _safe_float(row.get('COMP 7')),
+            rfq                          = _safe(row.get('RFQ')),
+            actual_start8                = _safe(row.get('ACTUAL START8')),
+            actual_finish8               = _safe(row.get('ACTUAL FINISH8')),
+            comp8                        = _safe_float(row.get('COMP 8')),
+            po                           = _safe(row.get('PO')),
+            actual_start9                = _safe(row.get('ACTUAL START9')),
+            actual_finish9               = _safe(row.get('ACTUAL FINISH9')),
+            comp9                        = _safe_float(row.get('COMP 9')),
+            gr_no                        = _safe(row.get('GR No')),
+            actual_start10               = _safe(row.get('ACTUAL START10')),
+            actual_finish10              = _safe(row.get('ACTUAL FINISH10')),
+            comp10                       = _safe_float(row.get('COMP 10')),
+            gi_no                        = _safe(row.get('GI No')),
+            actual_start11               = _safe(row.get('ACTUAL START11')),
+            actual_finish11              = _safe(row.get('ACTUAL FINISH11')),
+            comp11                       = _safe_float(row.get('COMP 11')),
+            actual_start12               = _safe(row.get('ACTUAL START12')),
+            actual_finish12              = _safe(row.get('ACTUAL FINISH12')),
+            comp12                       = _safe_float(row.get('COMP 12')),
+            actual_start13               = _safe(row.get('ACTUAL START13')),
+            actual_finish13              = _safe(row.get('ACTUAL FINISH13')),
+            comp13                       = _safe_float(row.get('COMP 13')),
+            sa_no                        = _safe(row.get('SA No')),
+            actual_start14               = _safe(row.get('ACTUAL START14')),
+            actual_finish14              = _safe(row.get('ACTUAL FINISH14')),
+            comp14                       = _safe_float(row.get('COMP 14')),
+            actual_start15               = _safe(row.get('ACTUAL START15')),
+            actual_finish15              = _safe(row.get('ACTUAL FINISH15')),
+            comp15                       = _safe_float(row.get('COMP 15')),
+            current_step                 = _safe_int(row.get('CURRENT STEP')),
+            status_step                  = _safe(row.get('STATUS STEP')),
+            status_prognosa              = _safe(row.get('STATUS PROGNOSA')),
+        ))
+        count += 1
+    db.commit()
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ IRKAP Actual berhasil {action}! ({count} records)"}
