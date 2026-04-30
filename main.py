@@ -319,6 +319,9 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         "inspection plan", "monitoring operasi",
         "irkap", "inspection", "prokja",
         "reservasi", "turnaround",
+        # ✅ Fix 1: Tambahan kata kunci bahasa Indonesia & kata follow-up
+        "inspeksi", "realisasi", "bandingkan", "dibanding", "dibandingkan",
+        "program kerja", "rencana inspeksi", "anggaran maintenance",
     ]
     _SAPAAN_KEYWORDS = [
         "halo", "hai", "hello", "hi ", "selamat pagi", "selamat siang",
@@ -330,10 +333,19 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
     elif any(kw in _q_lower for kw in _SPESIFIK_KEYWORDS):
         intent = "SPESIFIK"
     else:
-        # Fallback ke LLM hanya jika keyword shortcut tidak match
+        # ✅ Fix 2: Sertakan history ke intent classifier agar bisa baca konteks follow-up
+        history_context = ""
+        if history:
+            last_msgs = history[-4:]
+            history_context = "\n".join([
+                f"{'User' if isinstance(m, HumanMessage) else 'Bot'}: {m.content[:200]}"
+                for m in last_msgs
+            ])
+
         intent_check = await loop.run_in_executor(None, lambda: llm.invoke([{
             "role": "user",
             "content": (
+                f"Konteks percakapan sebelumnya:\n{history_context}\n\n"
                 f"Klasifikasikan pertanyaan berikut ke salah satu kategori:\n"
                 f"1. SAPAAN — jika sapaan, terima kasih, tanya kemampuan AI, atau obrolan umum yang tidak butuh data\n"
                 f"2. SPESIFIK — jika menyebut nama tabel/data berikut secara eksplisit: "
@@ -345,7 +357,10 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
                 f"CATATAN: Kata 'ru', 'refinery unit', 'kilang', 'equipment', 'laporan', 'data', "
                 f"'status', 'berapa', 'jumlah', 'tampilkan' BUKAN nama tabel — jika hanya menyebut "
                 f"kata-kata itu tanpa nama tabel spesifik maka AMBIGU.\n"
-                f"Jawab hanya satu kata: SAPAAN, SPESIFIK, atau AMBIGU\n\nPertanyaan: {{question}}"
+                f"PENTING: Jika pertanyaan adalah follow-up (pakai kata seperti 'bandingkan', "
+                f"'realisasi', 'tersebut', 'itu', 'lanjut', 'vs') dan konteks sebelumnya sudah "
+                f"menyebut topik spesifik → klasifikasi SPESIFIK.\n"
+                f"Jawab hanya satu kata: SAPAAN, SPESIFIK, atau AMBIGU\n\nPertanyaan: {question}"
             )
         }]))
         intent = intent_check.content.strip().upper()
@@ -357,7 +372,27 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         return greeting_response.content
 
     if "AMBIGU" in intent:
-        return "Laporan apa yang kamu maksud? 😊 Misalnya: Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, BOC, Anggaran, atau yang lain?"
+        # ✅ Fix 3: Konfirmasi dinamis — LLM analisis apa yang kurang lalu tanya yang relevan
+        history_context = ""
+        if history:
+            last_msgs = history[-4:]
+            history_context = "\n".join([
+                f"{'User' if isinstance(m, HumanMessage) else 'Bot'}: {m.content[:200]}"
+                for m in last_msgs
+            ])
+        clarify = await loop.run_in_executor(None, lambda: llm.invoke([{
+            "role": "user",
+            "content": (
+                f"Riwayat percakapan:\n{history_context}\n\n"
+                f"Pertanyaan user: {question}\n\n"
+                f"Pertanyaan ini kurang lengkap untuk query database kilang. "
+                f"Identifikasi informasi apa yang kurang (nama laporan, RU, tahun, filter, dll) "
+                f"lalu buat satu kalimat tanya yang natural dan relevan dalam Bahasa Indonesia. "
+                f"Jangan listing semua laporan yang ada, cukup tanyakan yang kurang saja. "
+                f"Format singkat dan ramah."
+            )
+        }]))
+        return clarify.content.strip()
 
     # ── Cek PRISMA via LLM ──
     prisma_table_list = ", ".join(PRISMA_TABLES) if PRISMA_TABLES else "taex_reservasi, prisma_reservasi, kumpulan_summary, sap_pr, sap_po, work_order"
