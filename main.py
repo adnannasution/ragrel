@@ -142,6 +142,8 @@ def _save_upload_time(data_type: str):
     registry = _load_registry()
     registry[data_type] = datetime.now().strftime("%d %b %Y, %H:%M")
     json.dump(registry, open(UPLOAD_REGISTRY, "w"))
+    # Rebuild schema scan supaya kolom baru langsung terdeteksi
+    _build_db_schema_cols()
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -149,6 +151,7 @@ templates = Jinja2Templates(directory="templates")
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    _build_db_schema_cols()  # scan kolom kategorikal otomatis
 
 llm = ChatOpenAI(
     model="gpt-4o",
@@ -178,7 +181,7 @@ ATURAN QUERY SQL:
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
 - PENTING: Jangan pernah query SELECT * tanpa LIMIT. Selalu gunakan agregasi, filter, atau LIMIT 20.
 - Jika pertanyaan meminta "tampilkan semua" data ribuan baris, buat RINGKASAN/AGREGASI saja lalu tawarkan download dengan format: [DOWNLOAD:key_tabel] — contoh: [DOWNLOAD:pipeline] atau [DOWNLOAD:atg]. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan.
-- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan, irkap_program, irkap_actual.
+- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan, irkap_program, irkap_actual, master_equipment.
 - DETEKSI PERTANYAAN TIDAK PRODUKTIF: Jika user meminta salah satu dari berikut, JANGAN query — langsung tolak dengan sopan dan arahkan ke pertanyaan analisis yang lebih tepat:
   * "tampilkan semua", "list semua", "show all", "lihat semua", "ceritakan semua"
   * "tampilkan seluruh isi tabel", "dump data", "export semua"
@@ -214,6 +217,7 @@ PENGECUALIAN — tetap jawab dengan ramah untuk:
 - Untuk spm_workplan: workplan perbaikan SPM — kolom refinery_unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
 - Untuk irkap_program: daftar program kerja IRKAP 2024. KOLOM YANG TERSEDIA (gunakan HANYA nama kolom ini, jangan tambah kolom lain): refinery_unit, disiplin, kategori_rkap, material_jasa, highlevel_planning_note, referensi_prokja_sebelumnya, no_program_kerja, equipment_tag_no, type_equipment, detail_type_equipment, program_kerja, step_plan_today, detail_step_plan_today, step_actual_today, detail_step_actual_today, status_step, start_plan, finish_plan, status_prognosa, kelompok_biaya, nilai_anggaran_idr, nilai_anggaran_usd, top_risk, asset_integrity. TIDAK ADA kolom month_update, bulan, tahun, atau year di tabel ini — jangan generate kolom tersebut. Untuk filter tahun gunakan YEAR(start_plan) atau STRFTIME(\'%Y\', start_plan). Tampilkan nilai_anggaran_idr dengan format Rp.
 - Untuk irkap_actual: realisasi step pelaksanaan IRKAP. KOLOM YANG TERSEDIA (gunakan HANYA nama kolom ini): no, no_program, kategori_rkap, program_asset_integrity, refinery_unit, area, unit_process, tag_no, dasar_pengusulan, rekomendasi, program_kerja, disiplin, kategory_trigger, kelompok_sasaran_rk, kel_biaya, note, release_type, jadwal_pelaksanaan, jadwal_cost, jadwal_cash, strategy_penyelesaian, failure_impact, high_level_planning_note, referensi_prokja_sebelumnya, cost_center, cost_element, wbs_number, anggaran_idr, anggaran_usd, anggaran_equivalent_idr, probability_class, probability_likelyhood, economic_usd, health_safety, environment, ram_criticality, material_jasa, sumber_harga, actual_start1, actual_finish1, comp1, notif_no, actual_start2, actual_finish2, comp2, actual_start3, actual_finish3, comp3, wo_no, actual_start4, actual_finish4, comp4, ro_no, actual_start5, actual_finish5, comp5, actual_start6, actual_finish6, comp6, pr, actual_start7, actual_finish7, comp7, rfq, actual_start8, actual_finish8, comp8, po, actual_start9, actual_finish9, comp9, gr_no, actual_start10, actual_finish10, comp10, gi_no, actual_start11, actual_finish11, comp11, actual_start12, actual_finish12, comp12, actual_start13, actual_finish13, comp13, sa_no, actual_start14, actual_finish14, comp14, actual_start15, actual_finish15, comp15, current_step, status_step, status_prognosa. TIDAK ADA kolom month_update, bulan, tahun di tabel ini. Gunakan status_prognosa ('On Fiscal Year', 'Next Year', 'Closed') dan current_step untuk analisis progres.
+- Untuk master_data_equipment: master data equipment dari SAP IH08 — berisi semua equipment yang terdaftar di sistem. KOLOM YANG TERSEDIA: criticality (A/B/C/Z — tingkat kritikal equipment), equipment (nomor equipment SAP), functional_location, maintenance_plant, location (kode RU/lokasi), cost_center, wbs_element, main_work_center, planner_group, planning_plant, catalog_profile, equipment_category, description (deskripsi teknis equipment), manufacturer, model_type, serial_number, changed_by, changed_on, created_by, created_on, technical_obj_type, manufact_serial_number, manufacturer_drawing_number, manufacturer_part_number, material, material_1, material_description, order_no, size_dimension, sort_field_ata. Contoh query: jumlah equipment per criticality, list equipment berdasarkan functional_location, cari equipment by description atau manufacturer. Untuk filter criticality gunakan: WHERE criticality = 'A'. Untuk download massal gunakan [DOWNLOAD:master_equipment].
 
 {prisma_schema}
 
@@ -270,6 +274,149 @@ db_chain = SQLDatabaseChain.from_llm(
     llm, db_engine, prompt=PROMPT, verbose=True, return_direct=False
 )
 
+# ─── DYNAMIC CATEGORICAL VALUES (Opsi B — LLM deteksi per pertanyaan) ────────
+
+# Schema tabel → kolom TEXT yang layak di-DISTINCT (exclude ID, tanggal, teks bebas)
+# Di-generate otomatis saat startup dari DB, disimpan di sini
+_DB_SCHEMA_COLS: dict = {}  # {"table": ["col1", "col2", ...]}
+
+_SKIP_COL_KEYWORDS = [
+    "id", "no", "number", "tanggal", "date", "time", "url",
+    "note", "keterangan", "alamat", "deskripsi", "description",
+    "ket", "remark", "comment", "kode", "code", "path", "file",
+    "nama", "name", "tag", "wbs", "pr", "po", "gr", "gi", "sa",
+    "notif", "wo", "ro", "rfq", "serial"
+]
+
+def _build_db_schema_cols():
+    """Scan semua tabel & kolom TEXT di DB, simpan yang layak jadi contekan."""
+    global _DB_SCHEMA_COLS
+    from sqlalchemy import inspect as sa_inspect, Text, String
+    from sqlalchemy import text
+
+    try:
+        insp = sa_inspect(engine)
+        tables = insp.get_table_names()
+        result = {}
+        with engine.connect() as conn:
+            for table in tables:
+                cols = insp.get_columns(table)
+                text_cols = []
+                for col in cols:
+                    col_name = col["name"].lower()
+                    # Skip kalau nama kolom mengandung keyword terlarang
+                    if any(kw in col_name for kw in _SKIP_COL_KEYWORDS):
+                        continue
+                    # Hanya ambil kolom TEXT/VARCHAR
+                    if not isinstance(col["type"], (Text, String)):
+                        continue
+                    # Cek jumlah distinct — skip kalau > 100 (terlalu banyak / teks bebas)
+                    try:
+                        cnt = conn.execute(
+                            text(f"SELECT COUNT(DISTINCT {col['name']}) FROM {table}")
+                        ).scalar() or 0
+                        if 1 < cnt <= 100:
+                            text_cols.append(col["name"])
+                    except Exception:
+                        pass
+                if text_cols:
+                    result[table] = text_cols
+        _DB_SCHEMA_COLS = result
+    except Exception as e:
+        print(f"[schema scan error] {e}")
+
+async def _detect_relevant_cols(question: str) -> dict:
+    """
+    Panggil LLM kecil untuk deteksi tabel & kolom kategorikal
+    yang relevan dengan pertanyaan. Return: {"table": ["col1", ...]}
+    """
+    import json, asyncio
+
+    if not _DB_SCHEMA_COLS:
+        return {}
+
+    schema_str = "\n".join(
+        f"  {tbl}: {', '.join(cols)}"
+        for tbl, cols in _DB_SCHEMA_COLS.items()
+    )
+
+    detect_prompt = f"""Kamu adalah asisten yang menentukan kolom kategorikal mana yang relevan untuk sebuah pertanyaan.
+
+Berikut daftar tabel dan kolom TEXT kategorikal yang tersedia:
+{schema_str}
+
+Pertanyaan user: "{question}"
+
+Tentukan tabel dan kolom mana yang PALING RELEVAN dengan pertanyaan di atas.
+Balas HANYA dengan JSON valid, format:
+{{"tabel_nama": ["kolom1", "kolom2"], "tabel_lain": ["kolom3"]}}
+
+Jika tidak ada yang relevan, balas: {{}}
+Jangan tambahkan penjelasan apapun, hanya JSON."""
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                f"{os.getenv('OPENAI_BASE_URL', 'https://ai.dinoiki.com/v1')}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {os.getenv('DINOIKI_API_KEY')}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": detect_prompt}],
+                    "max_tokens": 300,
+                    "temperature": 0
+                }
+            )
+            raw = resp.json()["choices"][0]["message"]["content"].strip()
+            # Bersihkan kalau ada markdown fence
+            raw = raw.replace("```json", "").replace("```", "").strip()
+            return json.loads(raw)
+    except Exception as e:
+        print(f"[detect_relevant_cols error] {e}")
+        return {}
+
+async def _fetch_dynamic_categorical(question: str) -> str:
+    """
+    Per pertanyaan: deteksi tabel/kolom relevan via LLM kecil,
+    lalu DISTINCT hanya kolom itu, return sebagai string contekan.
+    """
+    from sqlalchemy import text, inspect as sa_inspect
+
+    relevant = await _detect_relevant_cols(question)
+    if not relevant:
+        return ""
+
+    try:
+        insp = sa_inspect(engine)
+        existing = set(insp.get_table_names())
+        lines = ["\n\n=== NILAI KATEGORIKAL AKTUAL DI DATABASE ===",
+                 "Gunakan nilai-nilai berikut secara EXACT (case-sensitive) dalam SQL query:\n"]
+
+        with engine.connect() as conn:
+            for table, cols in relevant.items():
+                if table not in existing:
+                    continue
+                lines.append(f"[{table}]")
+                for col in cols:
+                    try:
+                        result = conn.execute(
+                            text(f"SELECT DISTINCT {col} FROM {table} "
+                                 f"WHERE {col} IS NOT NULL ORDER BY {col} LIMIT 50")
+                        )
+                        vals = [str(r[0]).strip() for r in result if r[0]]
+                        if vals:
+                            lines.append(f"  {col}: {' | '.join(vals)}")
+                    except Exception:
+                        pass
+                lines.append("")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"\n(Gagal load categorical values: {e})"
+
 # ─── SESSION MEMORY ───────────────────────────────────────────────────────────
 MAX_HISTORY = 10  # max pesan per sesi (5 pasang tanya-jawab)
 session_histories: dict[str, list] = {}
@@ -295,13 +442,14 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
 
     # Build messages dengan history
     prisma_prompt = PRISMA_SCHEMA_PROMPT or "(PRISMA schema belum tersedia — pastikan PRISMA_URL sudah dikonfigurasi)"
+    categorical_ctx = await _fetch_dynamic_categorical(question)
     _prompt = (CUSTOM_PROMPT
         .replace("{table_info}", table_info)
         .replace("{prisma_schema}", prisma_prompt)
         .replace("{input}", "")
         .replace("{{", "{")
         .replace("}}", "}")
-    )
+    ) + categorical_ctx
     messages = [{"role": "system", "content": _prompt}]
     for msg in history:
         if isinstance(msg, HumanMessage):
@@ -993,6 +1141,7 @@ EXPORT_TABLES = {
     "spm_workplan":    ("spm_workplan",                "SPM Workplan"),
     "irkap_program":   ("irkap_program",               "IRKAP Program"),
     "irkap_actual":    ("irkap_actual",                "IRKAP Actual"),
+    "master_equipment": ("master_data_equipment",      "Master Data Equipment"),
 }
 
 @app.get("/export")
@@ -1031,7 +1180,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan", "irkap_program", "irkap_actual"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan", "irkap_program", "irkap_actual", "master_equipment"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -1062,6 +1211,7 @@ def table_stats(db: Session = Depends(get_db)):
         "spm_workplan":    "spm_workplan",
         "irkap_program":   "irkap_program",
         "irkap_actual":    "irkap_actual",
+        "master_equipment": "master_data_equipment",
     }
     return {
         k: {

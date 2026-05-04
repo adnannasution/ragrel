@@ -72,7 +72,7 @@ class ATGMonitoring(Base):
     external_resource       = Column(Text)
     no_irkap                = Column(Text)
     status_rtl              = Column(Text)
-    month_update            = Column(Text)
+    month_update            = Column(Date)
 
 # ─── 5a. BAD ACTOR MONITORING ────────────────────────────────────────────────
 class BadActorMonitoring(Base):
@@ -86,7 +86,7 @@ class BadActorMonitoring(Base):
     category_action_plan  = Column(Text)
     progress              = Column(Text)
     target_date           = Column(Text)
-    periode               = Column(Text)
+    periode               = Column(Date)
     action_plan_category  = Column(Text)
     external_resource     = Column(Text)
     no_irkap              = Column(Text)
@@ -96,7 +96,7 @@ class BadActorMonitoring(Base):
 class ICUMonitoring(Base):
     __tablename__ = "icu_monitoring"
     id                   = Column(Integer, primary_key=True, index=True)
-    report_date          = Column(Text)
+    report_date          = Column(Date)
     ru                   = Column(Text)
     icu_status           = Column(Text)
     tag_no               = Column(Text)
@@ -130,7 +130,7 @@ class MeteringMonitoring(Base):
     external_resource     = Column(Text)
     no_irkap              = Column(Text)
     status_rtl            = Column(Text)
-    month_update          = Column(Text)
+    month_update          = Column(Date)
 
 # ─── 7. PROGRAM KERJA ATG ────────────────────────────────────────────────────
 class ProgramKerjaATG(Base):
@@ -145,7 +145,7 @@ class ProgramKerjaATG(Base):
     external_resource    = Column(Text)
     no_irkap             = Column(Text)
     target               = Column(Text)
-    month_update         = Column(Text)
+    month_update         = Column(Date)
 
 # ─── 8. PAF (Plant Availability Factor) ──────────────────────────────────────
 class PAF(Base):
@@ -179,9 +179,9 @@ class ZeroClamp(Base):
     type_damage                     = Column(Text)
     posisi                          = Column(Text)
     type_perbaikan                  = Column(Text)
-    tanggal_dipasang                = Column(Text)
-    tanggal_dilepas                 = Column(Text)
-    tanggal_rencana_perbaikan       = Column(Text)
+    tanggal_dipasang                = Column(Date)
+    tanggal_dilepas                 = Column(Date)
+    tanggal_rencana_perbaikan       = Column(Date)
     no_irkap                        = Column(Text)
     status                          = Column(Text)
     remarks                         = Column(Text)
@@ -656,3 +656,38 @@ class IrkapActual(Base):
     current_step                 = Column(Integer)
     status_step                  = Column(Text)
     status_prognosa              = Column(Text)
+
+# ─── 29. MASTER DATA EQUIPMENT (IH08) ────────────────────────────────────────
+class MasterDataEquipment(Base):
+    __tablename__ = "master_data_equipment"
+    id                          = Column(Integer, primary_key=True, index=True)
+    criticality                 = Column(Text)       # Criticallity
+    equipment                   = Column(Text)       # Equipment
+    functional_location         = Column(Text)       # Functional Location
+    maintenance_plant           = Column(Text)       # Maintenance plant
+    location                    = Column(Text)       # Location
+    cost_center                 = Column(Text)       # Cost Center
+    wbs_element                 = Column(Text)       # WBS element
+    main_work_center            = Column(Text)       # Main work center
+    planner_group               = Column(Text)       # Planner group
+    planning_plant              = Column(Text)       # Planning plant
+    catalog_profile             = Column(Text)       # Catalog profile
+    equipment_category          = Column(Text)       # Equipment category
+    description                 = Column(Text)       # Description of Technical Object
+    manufacturer                = Column(Text)       # Manufacturer of asset
+    model_type                  = Column(Text)       # Model/Type
+    serial_number               = Column(Text)       # Serial Number
+    changed_by                  = Column(Text)       # Changed by
+    changed_on                  = Column(Text)       # Changed on
+    created_by                  = Column(Text)       # Created by
+    created_on                  = Column(Text)       # Created on
+    technical_obj_type          = Column(Text)       # Technical obj. type
+    manufact_serial_number      = Column(Text)       # ManufactSerialNumber
+    manufacturer_drawing_number = Column(Text)       # Manufacturer drawing number
+    manufacturer_part_number    = Column(Text)       # Manufacturer part number
+    material                    = Column(Text)       # Material
+    material_1                  = Column(Text)       # Material.1
+    material_description        = Column(Text)       # Material Description
+    order_no                    = Column(Text)       # Order
+    size_dimension              = Column(Text)       # Size/dimension
+    sort_field_ata              = Column(Text)       # Sort Field / ATA 100

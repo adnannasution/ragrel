@@ -401,6 +401,12 @@
                         <div class="stat-rows" id="stat-rows-irkap_actual"></div>
                         <div class="stat-upd"  id="stat-upd-irkap_actual"></div>
                     </div>
+                    <div class="card-option cursor-pointer border-2 rounded-xl p-3 text-center border-gray-200 bg-white" data-type="master_equipment" onclick="selectType('master_equipment', this)">
+                        <div class="text-xl mb-1">🗂️</div>
+                        <div class="text-xs font-semibold text-gray-700">Master Data Equipment</div>
+                        <div class="stat-rows" id="stat-rows-master_equipment"></div>
+                        <div class="stat-upd"  id="stat-upd-master_equipment"></div>
+                    </div>
                 </div>
 
                 <!-- Upload Progress -->
@@ -477,7 +483,8 @@
         'readiness_jetty', 'workplan_jetty',
         'readiness_tank', 'workplan_tank',
         'readiness_spm', 'spm_workplan',
-        'irkap_program', 'irkap_actual'
+        'irkap_program', 'irkap_actual',
+        'master_equipment'
     ]);
 
     function selectType(type, el) {
