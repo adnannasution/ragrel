@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Float, Text, Numeric, Date
+from sqlalchemy import Column, Integer, Float, Text, Numeric
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -72,7 +72,7 @@ class ATGMonitoring(Base):
     external_resource       = Column(Text)
     no_irkap                = Column(Text)
     status_rtl              = Column(Text)
-    month_update            = Column(Date)
+    month_update            = Column(Text)
 
 # ─── 5a. BAD ACTOR MONITORING ────────────────────────────────────────────────
 class BadActorMonitoring(Base):
@@ -86,7 +86,7 @@ class BadActorMonitoring(Base):
     category_action_plan  = Column(Text)
     progress              = Column(Text)
     target_date           = Column(Text)
-    periode               = Column(Date)
+    periode               = Column(Text)
     action_plan_category  = Column(Text)
     external_resource     = Column(Text)
     no_irkap              = Column(Text)
@@ -130,7 +130,7 @@ class MeteringMonitoring(Base):
     external_resource     = Column(Text)
     no_irkap              = Column(Text)
     status_rtl            = Column(Text)
-    month_update          = Column(Date)
+    month_update          = Column(Text)
 
 # ─── 7. PROGRAM KERJA ATG ────────────────────────────────────────────────────
 class ProgramKerjaATG(Base):
@@ -145,7 +145,7 @@ class ProgramKerjaATG(Base):
     external_resource    = Column(Text)
     no_irkap             = Column(Text)
     target               = Column(Text)
-    month_update         = Column(Date)
+    month_update         = Column(Text)
 
 # ─── 8. PAF (Plant Availability Factor) ──────────────────────────────────────
 class PAF(Base):
@@ -179,9 +179,9 @@ class ZeroClamp(Base):
     type_damage                     = Column(Text)
     posisi                          = Column(Text)
     type_perbaikan                  = Column(Text)
-    tanggal_dipasang                = Column(Date)
-    tanggal_dilepas                 = Column(Date)
-    tanggal_rencana_perbaikan       = Column(Date)
+    tanggal_dipasang                = Column(Text)
+    tanggal_dilepas                 = Column(Text)
+    tanggal_rencana_perbaikan       = Column(Text)
     no_irkap                        = Column(Text)
     status                          = Column(Text)
     remarks                         = Column(Text)
