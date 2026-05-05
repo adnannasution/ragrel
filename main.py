@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan, IrkapProgram, IrkapActual
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan, IrkapProgram, IrkapActual, MasterDataEquipment
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -715,12 +715,14 @@ async def upload_sync(
             "spm_workplan":    sync_spm_workplan,
             "irkap_program":   sync_irkap_program,
             "irkap_actual":    sync_irkap_actual,
+            "master_equipment": sync_master_data_equipment,
         }
         APPEND_SUPPORTED = {
             "readiness_jetty", "workplan_jetty",
             "readiness_tank", "workplan_tank",
             "readiness_spm", "spm_workplan",
             "irkap_program", "irkap_actual",
+            "master_equipment",
         }
         if data_type not in handlers:
             return {"error": f"Jenis data tidak dikenal: {data_type}"}
@@ -742,6 +744,7 @@ async def upload_sync(
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_anggaran(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name="RU's", header=None)
+    df = _auto_convert_dates(df)
     ru_col_start = {
         'RU II': 1, 'RU III': 9, 'RU IV': 17,
         'RU V': 25, 'RU VI': 33, 'RU VII': 41,
@@ -791,6 +794,7 @@ def sync_anggaran(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_pipeline(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
+    df = _auto_convert_dates(df)
     db.query(PipelineInspection).delete()
     count = 0
     for _, row in df.iterrows():
@@ -821,6 +825,7 @@ def sync_pipeline(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_rotor(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
+    df = _auto_convert_dates(df)
     db.query(RotorMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -851,6 +856,7 @@ def sync_rotor(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_atg(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
+    df = _auto_convert_dates(df)
     db.query(ATGMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -879,6 +885,7 @@ def sync_atg(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_metering(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
+    df = _auto_convert_dates(df)
     db.query(MeteringMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -905,6 +912,7 @@ def sync_metering(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_badactor(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
+    df = _auto_convert_dates(df)
     db.query(BadActorMonitoring).delete()
     # Gabungkan kolom No IRKAP 1-5 menjadi satu string
     irkap_cols = ['No IRKAP 1', 'No IRKAP 2', 'No IRKAP 3', 'No IRKAP 4', 'No IRKAP 5']
@@ -974,9 +982,92 @@ def _safe_int(val):
     n = _safe_num(val)
     return int(n) if n is not None else None
 
+# ─── AUTO DATE NORMALIZATION ──────────────────────────────────────────────────
+import re as _re
+from datetime import datetime as _dt
+
+_BULAN_ID = {
+    'januari':'01','februari':'02','maret':'03','april':'04',
+    'mei':'05','juni':'06','juli':'07','agustus':'08',
+    'september':'09','oktober':'10','november':'11','desember':'12',
+    'jan':'01','feb':'02','mar':'03','apr':'04','may':'05','jun':'06',
+    'jul':'07','aug':'08','sep':'09','oct':'10','nov':'11','dec':'12',
+}
+_MINGGU_ROMAWI = {'I':'01','II':'08','III':'15','IV':'22'}
+
+_DATE_FORMATS = [
+    '%d/%m/%Y','%d-%m-%Y','%Y-%m-%d','%Y/%m/%d',
+    '%d/%m/%y','%d-%m-%y','%m/%d/%Y','%m-%d-%Y',
+    '%d %B %Y','%d %b %Y','%B %Y','%b %Y',
+]
+
+def _try_parse_date(val) -> str | None:
+    """Coba parse satu nilai menjadi 'YYYY-MM-DD'. Return None kalau gagal."""
+    if val is None:
+        return None
+    import pandas as _pd
+    try:
+        if _pd.isna(val):
+            return None
+    except Exception:
+        pass
+    # Kalau sudah datetime dari pandas
+    if hasattr(val, 'strftime'):
+        return val.strftime('%Y-%m-%d')
+    s = str(val).strip()
+    if not s:
+        return None
+
+    # Format W-xx Bulan Tahun → e.g. "W-I Mei 2021"
+    m = _re.match(r'W-([IVX]+)\s+(\w+)\s+(\d{4})', s, _re.IGNORECASE)
+    if m:
+        hari  = _MINGGU_ROMAWI.get(m.group(1).upper(), '01')
+        bulan = _BULAN_ID.get(m.group(2).lower())
+        tahun = m.group(3)
+        if bulan:
+            return f"{tahun}-{bulan}-{hari}"
+
+    # "Januari 2024" / "Jan 2024"
+    m = _re.match(r'^(\w+)\s+(\d{4})$', s)
+    if m:
+        bulan = _BULAN_ID.get(m.group(1).lower())
+        if bulan:
+            return f"{m.group(2)}-{bulan}-01"
+
+    # Format standar
+    for fmt in _DATE_FORMATS:
+        try:
+            return _dt.strptime(s, fmt).strftime('%Y-%m-%d')
+        except Exception:
+            pass
+    return None
+
+def _auto_convert_dates(df) -> object:
+    """
+    Scan semua kolom DataFrame — kalau > 70% isinya bisa di-parse sebagai tanggal,
+    konversi seluruh kolom itu ke format YYYY-MM-DD (tetap sebagai string/Text).
+    """
+    import pandas as _pd
+    for col in df.columns:
+        sample = df[col].dropna()
+        if len(sample) == 0:
+            continue
+        # Skip kolom yang sudah numeric
+        if _pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        # Coba parse sample (max 50 baris untuk efisiensi)
+        test = sample.head(50)
+        parsed = [_try_parse_date(v) for v in test]
+        success_rate = sum(1 for p in parsed if p is not None) / len(test)
+        if success_rate >= 0.7:
+            # Konversi seluruh kolom
+            df[col] = df[col].apply(_try_parse_date)
+    return df
+
 def sync_icu(file_location: str, db: Session):
     # Baca dengan header=0, lalu rename kolom duplikat ke nama aslinya (hapus suffix _0, _1, dst)
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
 
     # Normalisasi nama kolom — hapus suffix duplikat pandas (_0, _1, .1, .2, dst)
     import re
@@ -1068,6 +1159,7 @@ def sync_icu(file_location: str, db: Session):
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_prokja_atg(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(ProgramKerjaATG).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1367,6 +1459,7 @@ def _to_date_str(v):
 
 def sync_paf(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(PAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1392,6 +1485,7 @@ def sync_paf(file_location: str, db: Session):
 
 def sync_zero_clamp(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(ZeroClamp).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1419,6 +1513,7 @@ def sync_zero_clamp(file_location: str, db: Session):
 
 def sync_issue_paf(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(IssuePAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1436,6 +1531,7 @@ def sync_issue_paf(file_location: str, db: Session):
 
 def sync_power_stream(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(PowerStream).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1460,6 +1556,7 @@ def sync_power_stream(file_location: str, db: Session):
 
 def sync_jumlah_eqp(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(JumlahEqpUTL).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1477,6 +1574,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
 
 def sync_critical_utl(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(CriticalEqpUTL).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1499,6 +1597,7 @@ def sync_critical_utl(file_location: str, db: Session):
 
 def sync_critical_prim(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(CriticalEqpPrimSec).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1522,6 +1621,7 @@ def sync_critical_prim(file_location: str, db: Session):
 
 def sync_mon_operasi(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(MonitoringOperasi).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1553,6 +1653,7 @@ def sync_mon_operasi(file_location: str, db: Session):
 
 def sync_inspection_plan(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(InspectionPlan).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1583,6 +1684,7 @@ def sync_inspection_plan(file_location: str, db: Session):
 
 def sync_tkdn(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(TKDN).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1600,6 +1702,7 @@ def sync_tkdn(file_location: str, db: Session):
 
 def sync_rcps_rekomendasi(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(RCPSRekomendasi).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1627,6 +1730,7 @@ def sync_rcps_rekomendasi(file_location: str, db: Session):
 
 def sync_rcps(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(RCPS).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1647,6 +1751,7 @@ def sync_rcps(file_location: str, db: Session):
 
 def sync_boc(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     db.query(BOC).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1671,6 +1776,7 @@ def sync_boc(file_location: str, db: Session):
 
 def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(ReadinessJetty).delete()
     count = 0
@@ -1707,6 +1813,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
 
 def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(WorkplanJetty).delete()
     count = 0
@@ -1735,6 +1842,7 @@ def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
 
 def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(ReadinessTank).delete()
     count = 0
@@ -1774,6 +1882,7 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
 
 def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(WorkplanTank).delete()
     count = 0
@@ -1799,6 +1908,7 @@ def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
 
 def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(ReadinessSPM).delete()
     count = 0
@@ -1834,6 +1944,7 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
 
 def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(SPMWorkplan).delete()
     count = 0
@@ -1860,6 +1971,7 @@ def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
     return {"message": f"✅ SPM Workplan berhasil {action}! ({count} records)"}
 def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, header=2)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(IrkapProgram).delete()
     count = 0
@@ -1897,6 +2009,7 @@ def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
 
 def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, header=1)
+    df = _auto_convert_dates(df)
     if mode == "replace":
         db.query(IrkapActual).delete()
     count = 0
@@ -2002,3 +2115,52 @@ def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
     db.commit()
     action = "ditambahkan" if mode == "append" else "diupdate"
     return {"message": f"✅ IRKAP Actual berhasil {action}! ({count} records)"}
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSER: MASTER DATA EQUIPMENT (IH08)
+# ─────────────────────────────────────────────────────────────────────────────
+def sync_master_data_equipment(file_location: str, db: Session, mode: str = "replace"):
+    df = pd.read_excel(file_location, sheet_name=0, dtype=str)
+    df = _auto_convert_dates(df)
+    df = df.where(pd.notnull(df), None)
+
+    if mode != "append":
+        db.query(MasterDataEquipment).delete()
+
+    count = 0
+    for _, row in df.iterrows():
+        db.add(MasterDataEquipment(
+            criticality                 = row.get('Criticallity'),
+            equipment                   = row.get('Equipment'),
+            functional_location         = row.get('Functional Location'),
+            maintenance_plant           = row.get('Maintenance plant'),
+            location                    = row.get('Location'),
+            cost_center                 = row.get('Cost Center'),
+            wbs_element                 = row.get('WBS element'),
+            main_work_center            = row.get('Main work center'),
+            planner_group               = row.get('Planner group'),
+            planning_plant              = row.get('Planning plant'),
+            catalog_profile             = row.get('Catalog profile'),
+            equipment_category          = row.get('Equipment category'),
+            description                 = row.get('Description of Technical Object'),
+            manufacturer                = row.get('Manufacturer of asset'),
+            model_type                  = row.get('Model/Type'),
+            serial_number               = row.get('Serial Number'),
+            changed_by                  = row.get('Changed by'),
+            changed_on                  = row.get('Changed on'),
+            created_by                  = row.get('Created by'),
+            created_on                  = row.get('Created on'),
+            technical_obj_type          = row.get('Technical obj. type'),
+            manufact_serial_number      = row.get('ManufactSerialNumber'),
+            manufacturer_drawing_number = row.get('Manufacturer drawing number'),
+            manufacturer_part_number    = row.get('Manufacturer part number'),
+            material                    = row.get('Material'),
+            material_1                  = row.get('Material.1'),
+            material_description        = row.get('Material Description'),
+            order_no                    = row.get('Order'),
+            size_dimension              = row.get('Size/dimension'),
+            sort_field_ata              = row.get('Sort Field / ATA 100'),
+        ))
+        count += 1
+    db.commit()
+    action = "ditambahkan" if mode == "append" else "diupdate"
+    return {"message": f"✅ Master Data Equipment berhasil {action}! ({count} records)"}
