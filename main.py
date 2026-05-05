@@ -217,7 +217,7 @@ PENGECUALIAN — tetap jawab dengan ramah untuk:
 - Untuk spm_workplan: workplan perbaikan SPM — kolom refinery_unit, tag_no, item, remark, rtl_action_plan, target, status_rtl, month_update.
 - Untuk irkap_program: daftar program kerja IRKAP 2024. KOLOM YANG TERSEDIA (gunakan HANYA nama kolom ini, jangan tambah kolom lain): refinery_unit, disiplin, kategori_rkap, material_jasa, highlevel_planning_note, referensi_prokja_sebelumnya, no_program_kerja, equipment_tag_no, type_equipment, detail_type_equipment, program_kerja, step_plan_today, detail_step_plan_today, step_actual_today, detail_step_actual_today, status_step, start_plan, finish_plan, status_prognosa, kelompok_biaya, nilai_anggaran_idr, nilai_anggaran_usd, top_risk, asset_integrity. TIDAK ADA kolom month_update, bulan, tahun, atau year di tabel ini — jangan generate kolom tersebut. Untuk filter tahun gunakan YEAR(start_plan) atau STRFTIME(\'%Y\', start_plan). Tampilkan nilai_anggaran_idr dengan format Rp.
 - Untuk irkap_actual: realisasi step pelaksanaan IRKAP. KOLOM YANG TERSEDIA (gunakan HANYA nama kolom ini): no, no_program, kategori_rkap, program_asset_integrity, refinery_unit, area, unit_process, tag_no, dasar_pengusulan, rekomendasi, program_kerja, disiplin, kategory_trigger, kelompok_sasaran_rk, kel_biaya, note, release_type, jadwal_pelaksanaan, jadwal_cost, jadwal_cash, strategy_penyelesaian, failure_impact, high_level_planning_note, referensi_prokja_sebelumnya, cost_center, cost_element, wbs_number, anggaran_idr, anggaran_usd, anggaran_equivalent_idr, probability_class, probability_likelyhood, economic_usd, health_safety, environment, ram_criticality, material_jasa, sumber_harga, actual_start1, actual_finish1, comp1, notif_no, actual_start2, actual_finish2, comp2, actual_start3, actual_finish3, comp3, wo_no, actual_start4, actual_finish4, comp4, ro_no, actual_start5, actual_finish5, comp5, actual_start6, actual_finish6, comp6, pr, actual_start7, actual_finish7, comp7, rfq, actual_start8, actual_finish8, comp8, po, actual_start9, actual_finish9, comp9, gr_no, actual_start10, actual_finish10, comp10, gi_no, actual_start11, actual_finish11, comp11, actual_start12, actual_finish12, comp12, actual_start13, actual_finish13, comp13, sa_no, actual_start14, actual_finish14, comp14, actual_start15, actual_finish15, comp15, current_step, status_step, status_prognosa. TIDAK ADA kolom month_update, bulan, tahun di tabel ini. Gunakan status_prognosa ('On Fiscal Year', 'Next Year', 'Closed') dan current_step untuk analisis progres.
-- Untuk master_data_equipment: master data equipment dari SAP IH08 — berisi semua equipment yang terdaftar di sistem. KOLOM YANG TERSEDIA: criticality (A/B/C/Z — tingkat kritikal equipment), equipment (nomor equipment SAP), functional_location, maintenance_plant, location (kode RU/lokasi), cost_center, wbs_element, main_work_center, planner_group, planning_plant, catalog_profile, equipment_category, description (deskripsi teknis equipment), manufacturer, model_type, serial_number, changed_by, changed_on, created_by, created_on, technical_obj_type, manufact_serial_number, manufacturer_drawing_number, manufacturer_part_number, material, material_1, material_description, order_no, size_dimension, sort_field_ata. Contoh query: jumlah equipment per criticality, list equipment berdasarkan functional_location, cari equipment by description atau manufacturer. Untuk filter criticality gunakan: WHERE criticality = 'A'. Untuk download massal gunakan [DOWNLOAD:master_equipment].
+- Untuk master_data_equipment: master data equipment dari SAP IH08 — berisi semua equipment yang terdaftar di sistem. KOLOM YANG TERSEDIA: criticality (A/B/C/Z — tingkat kritikal equipment), equipment (nomor equipment SAP), functional_location, maintenance_plant, location (kode RU/lokasi), cost_center, wbs_element, main_work_center, planner_group, planning_plant, catalog_profile, equipment_category, description (deskripsi teknis equipment), manufacturer, model_type, serial_number, changed_by, changed_on, created_by, created_on, technical_obj_type, manufact_serial_number, manufacturer_drawing_number, manufacturer_part_number, material, material_description, order_no, size_dimension, sort_field_ata. Contoh query: jumlah equipment per criticality, list equipment berdasarkan functional_location, cari equipment by description atau manufacturer. Untuk filter criticality gunakan: WHERE criticality = 'A'. Untuk download massal gunakan [DOWNLOAD:master_equipment].
 
 {prisma_schema}
 
@@ -1072,21 +1072,29 @@ def _auto_convert_dates(df) -> object:
 
 def _dedup_columns(df) -> object:
     """
-    Hapus kolom duplikat yang di-rename pandas jadi 'col_1', 'col_2', 'col.1' dst.
+    Hapus kolom duplikat yang di-rename pandas jadi 'col_1', 'col_2' dst.
     Keep kolom pertama, drop sisanya.
+    Hanya strip suffix _N jika base-nya sudah ada di kolom lain (benar-benar duplikat).
     """
-    seen = {}
+    import re as _re2
+    # Kumpulkan semua nama kolom original (tanpa suffix)
+    col_map = {}   # base_name → index kolom pertama
     new_cols = []
-    for col in df.columns:
+    for i, col in enumerate(df.columns):
         col_str = str(col)
-        # Strip suffix _N (angka) atau .N yang ditambahkan pandas
-        import re as _re2
-        base = _re2.sub(r'[._]\d+$', '', col_str).strip()
-        if base not in seen:
-            seen[base] = True
-            new_cols.append(base)
-        else:
+        # Coba strip suffix _N (bukan .N karena bisa legitimate seperti Material.1)
+        m = _re2.match(r'^(.+)_(\d+)$', col_str)
+        base = m.group(1) if m else col_str
+        # Cek apakah base ada sebagai kolom lain di DataFrame
+        if m and base in [str(c) for c in df.columns]:
+            # Ini duplikat → tandai untuk drop
             new_cols.append(f"__dup_{col_str}")
+        elif base in col_map:
+            # Base sudah ada sebelumnya → duplikat
+            new_cols.append(f"__dup_{col_str}")
+        else:
+            col_map[base] = i
+            new_cols.append(col_str)
     df.columns = new_cols
     return df[[c for c in df.columns if not c.startswith('__dup_')]]
 
@@ -2168,9 +2176,26 @@ def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
 # PARSER: MASTER DATA EQUIPMENT (IH08)
 # ─────────────────────────────────────────────────────────────────────────────
 def sync_master_data_equipment(file_location: str, db: Session, mode: str = "replace"):
-    df = pd.read_excel(file_location, sheet_name=0, dtype=str)
+    # Baca header raw sebelum pandas mangle duplikat
+    raw_header = pd.read_excel(file_location, sheet_name=0, header=None, nrows=1, dtype=str).iloc[0].tolist()
+
+    # Deduplikasi header manual — duplikat diberi suffix .1, .2, dst (bukan di-drop)
+    # supaya 'Material' kedua jadi 'Material.1' sesuai mapping model
+    seen_h = {}
+    clean_header = []
+    for h in raw_header:
+        h = str(h).strip() if h and str(h) != 'nan' else f"__empty_{len(seen_h)}"
+        if h not in seen_h:
+            seen_h[h] = 0
+            clean_header.append(h)
+        else:
+            seen_h[h] += 1
+            clean_header.append(f"{h}.{seen_h[h]}")
+
+    df = pd.read_excel(file_location, sheet_name=0, header=0, dtype=str)
+    df.columns = clean_header
+    df = df[[c for c in df.columns if not c.startswith('__empty_')]]
     df = _auto_convert_dates(df)
-    df = _dedup_columns(df)
     df = df.where(pd.notnull(df), None)
 
     if mode != "append":
@@ -2204,7 +2229,6 @@ def sync_master_data_equipment(file_location: str, db: Session, mode: str = "rep
             manufacturer_drawing_number = row.get('Manufacturer drawing number'),
             manufacturer_part_number    = row.get('Manufacturer part number'),
             material                    = row.get('Material'),
-            material_1                  = row.get('Material.1'),
             material_description        = row.get('Material Description'),
             order_no                    = row.get('Order'),
             size_dimension              = row.get('Size/dimension'),

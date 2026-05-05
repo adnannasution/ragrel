@@ -686,7 +686,6 @@ class MasterDataEquipment(Base):
     manufacturer_drawing_number = Column(Text)       # Manufacturer drawing number
     manufacturer_part_number    = Column(Text)       # Manufacturer part number
     material                    = Column(Text)       # Material
-    material_1                  = Column(Text)       # Material.1
     material_description        = Column(Text)       # Material Description
     order_no                    = Column(Text)       # Order
     size_dimension              = Column(Text)       # Size/dimension
