@@ -474,7 +474,7 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         "workplan jetty", "workplan tank", "spm workplan",
         "inspection plan", "monitoring operasi",
         "irkap", "inspection", "prokja",
-        "reservasi", "turnaround",
+        "reservasi", "turnaround", "master data", "master data equipment", "equipment master",
         # ✅ Fix 1: Tambahan kata kunci bahasa Indonesia & kata follow-up
         "inspeksi", "realisasi", "bandingkan", "dibanding", "dibandingkan",
         "program kerja", "rencana inspeksi", "anggaran maintenance",
@@ -508,7 +508,7 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
                 f"Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, PAF, Zero Clamp, Power Stream, "
                 f"Anggaran, TKDN, RCPS, BOC, Readiness Jetty, Readiness Tank, Readiness SPM, "
                 f"Workplan Jetty, Workplan Tank, SPM Workplan, Inspection Plan, Monitoring Operasi, "
-                f"IRKAP, IRKAP Program, IRKAP Actual, reservasi, PR, PO, material TA, turnaround\n"
+                f"IRKAP, IRKAP Program, IRKAP Actual, Master Data Equipment, master data, reservasi, PR, PO, material TA, turnaround\n"
                 f"3. AMBIGU — jika tidak menyebut nama tabel spesifik apapun\n"
                 f"CATATAN: Kata 'ru', 'refinery unit', 'kilang', 'equipment', 'laporan', 'data', "
                 f"'status', 'berapa', 'jumlah', 'tampilkan' BUKAN nama tabel — jika hanya menyebut "
