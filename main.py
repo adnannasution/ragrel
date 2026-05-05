@@ -2200,41 +2200,51 @@ def sync_master_data_equipment(file_location: str, db: Session, mode: str = "rep
 
     if mode != "append":
         db.query(MasterDataEquipment).delete()
+        db.commit()
 
-    count = 0
+    records = []
     for _, row in df.iterrows():
-        db.add(MasterDataEquipment(
-            criticality                 = row.get('Criticallity'),
-            equipment                   = row.get('Equipment'),
-            functional_location         = row.get('Functional Location'),
-            maintenance_plant           = row.get('Maintenance plant'),
-            location                    = row.get('Location'),
-            cost_center                 = row.get('Cost Center'),
-            wbs_element                 = row.get('WBS element'),
-            main_work_center            = row.get('Main work center'),
-            planner_group               = row.get('Planner group'),
-            planning_plant              = row.get('Planning plant'),
-            catalog_profile             = row.get('Catalog profile'),
-            equipment_category          = row.get('Equipment category'),
-            description                 = row.get('Description of Technical Object'),
-            manufacturer                = row.get('Manufacturer of asset'),
-            model_type                  = row.get('Model/Type'),
-            serial_number               = row.get('Serial Number'),
-            changed_by                  = row.get('Changed by'),
-            changed_on                  = row.get('Changed on'),
-            created_by                  = row.get('Created by'),
-            created_on                  = row.get('Created on'),
-            technical_obj_type          = row.get('Technical obj. type'),
-            manufact_serial_number      = row.get('ManufactSerialNumber'),
-            manufacturer_drawing_number = row.get('Manufacturer drawing number'),
-            manufacturer_part_number    = row.get('Manufacturer part number'),
-            material                    = row.get('Material'),
-            material_description        = row.get('Material Description'),
-            order_no                    = row.get('Order'),
-            size_dimension              = row.get('Size/dimension'),
-            sort_field_ata              = row.get('Sort Field / ATA 100'),
-        ))
-        count += 1
-    db.commit()
+        records.append({
+            "criticality":                 row.get('Criticallity'),
+            "equipment":                   row.get('Equipment'),
+            "functional_location":         row.get('Functional Location'),
+            "maintenance_plant":           row.get('Maintenance plant'),
+            "location":                    row.get('Location'),
+            "cost_center":                 row.get('Cost Center'),
+            "wbs_element":                 row.get('WBS element'),
+            "main_work_center":            row.get('Main work center'),
+            "planner_group":               row.get('Planner group'),
+            "planning_plant":              row.get('Planning plant'),
+            "catalog_profile":             row.get('Catalog profile'),
+            "equipment_category":          row.get('Equipment category'),
+            "description":                 row.get('Description of Technical Object'),
+            "manufacturer":                row.get('Manufacturer of asset'),
+            "model_type":                  row.get('Model/Type'),
+            "serial_number":               row.get('Serial Number'),
+            "changed_by":                  row.get('Changed by'),
+            "changed_on":                  row.get('Changed on'),
+            "created_by":                  row.get('Created by'),
+            "created_on":                  row.get('Created on'),
+            "technical_obj_type":          row.get('Technical obj. type'),
+            "manufact_serial_number":      row.get('ManufactSerialNumber'),
+            "manufacturer_drawing_number": row.get('Manufacturer drawing number'),
+            "manufacturer_part_number":    row.get('Manufacturer part number'),
+            "material":                    row.get('Material'),
+            "material_description":        row.get('Material Description'),
+            "order_no":                    row.get('Order'),
+            "size_dimension":              row.get('Size/dimension'),
+            "sort_field_ata":              row.get('Sort Field / ATA 100'),
+        })
+        # Bulk insert per 5000 baris supaya memory tidak meledak
+        if len(records) >= 5000:
+            db.bulk_insert_mappings(MasterDataEquipment, records)
+            db.commit()
+            records = []
+
+    if records:
+        db.bulk_insert_mappings(MasterDataEquipment, records)
+        db.commit()
+
+    count = len(df)
     action = "ditambahkan" if mode == "append" else "diupdate"
     return {"message": f"✅ Master Data Equipment berhasil {action}! ({count} records)"}
