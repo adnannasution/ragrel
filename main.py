@@ -745,6 +745,7 @@ async def upload_sync(
 def sync_anggaran(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name="RU's", header=None)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     ru_col_start = {
         'RU II': 1, 'RU III': 9, 'RU IV': 17,
         'RU V': 25, 'RU VI': 33, 'RU VII': 41,
@@ -795,6 +796,7 @@ def sync_anggaran(file_location: str, db: Session):
 def sync_pipeline(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(PipelineInspection).delete()
     count = 0
     for _, row in df.iterrows():
@@ -826,6 +828,7 @@ def sync_pipeline(file_location: str, db: Session):
 def sync_rotor(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(RotorMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -857,6 +860,7 @@ def sync_rotor(file_location: str, db: Session):
 def sync_atg(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(ATGMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -886,6 +890,7 @@ def sync_atg(file_location: str, db: Session):
 def sync_metering(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(MeteringMonitoring).delete()
     count = 0
     for _, row in df.iterrows():
@@ -913,6 +918,7 @@ def sync_metering(file_location: str, db: Session):
 def sync_badactor(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(BadActorMonitoring).delete()
     # Gabungkan kolom No IRKAP 1-5 menjadi satu string
     irkap_cols = ['No IRKAP 1', 'No IRKAP 2', 'No IRKAP 3', 'No IRKAP 4', 'No IRKAP 5']
@@ -1064,10 +1070,31 @@ def _auto_convert_dates(df) -> object:
             df[col] = df[col].apply(_try_parse_date)
     return df
 
+def _dedup_columns(df) -> object:
+    """
+    Hapus kolom duplikat yang di-rename pandas jadi 'col_1', 'col_2', 'col.1' dst.
+    Keep kolom pertama, drop sisanya.
+    """
+    seen = {}
+    new_cols = []
+    for col in df.columns:
+        col_str = str(col)
+        # Strip suffix _N (angka) atau .N yang ditambahkan pandas
+        import re as _re2
+        base = _re2.sub(r'[._]\d+$', '', col_str).strip()
+        if base not in seen:
+            seen[base] = True
+            new_cols.append(base)
+        else:
+            new_cols.append(f"__dup_{col_str}")
+    df.columns = new_cols
+    return df[[c for c in df.columns if not c.startswith('__dup_')]]
+
 def sync_icu(file_location: str, db: Session):
     # Baca dengan header=0, lalu rename kolom duplikat ke nama aslinya (hapus suffix _0, _1, dst)
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
 
     # Normalisasi nama kolom — hapus suffix duplikat pandas (_0, _1, .1, .2, dst)
     import re
@@ -1160,6 +1187,7 @@ def sync_icu(file_location: str, db: Session):
 def sync_prokja_atg(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(ProgramKerjaATG).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1460,6 +1488,7 @@ def _to_date_str(v):
 def sync_paf(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(PAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1486,6 +1515,7 @@ def sync_paf(file_location: str, db: Session):
 def sync_zero_clamp(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(ZeroClamp).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1514,6 +1544,7 @@ def sync_zero_clamp(file_location: str, db: Session):
 def sync_issue_paf(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(IssuePAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1532,6 +1563,7 @@ def sync_issue_paf(file_location: str, db: Session):
 def sync_power_stream(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(PowerStream).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1557,6 +1589,7 @@ def sync_power_stream(file_location: str, db: Session):
 def sync_jumlah_eqp(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(JumlahEqpUTL).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1575,6 +1608,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
 def sync_critical_utl(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(CriticalEqpUTL).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1598,6 +1632,7 @@ def sync_critical_utl(file_location: str, db: Session):
 def sync_critical_prim(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(CriticalEqpPrimSec).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1622,6 +1657,7 @@ def sync_critical_prim(file_location: str, db: Session):
 def sync_mon_operasi(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(MonitoringOperasi).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1654,6 +1690,7 @@ def sync_mon_operasi(file_location: str, db: Session):
 def sync_inspection_plan(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(InspectionPlan).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1685,6 +1722,7 @@ def sync_inspection_plan(file_location: str, db: Session):
 def sync_tkdn(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(TKDN).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1703,6 +1741,7 @@ def sync_tkdn(file_location: str, db: Session):
 def sync_rcps_rekomendasi(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(RCPSRekomendasi).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1731,6 +1770,7 @@ def sync_rcps_rekomendasi(file_location: str, db: Session):
 def sync_rcps(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(RCPS).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1752,6 +1792,7 @@ def sync_rcps(file_location: str, db: Session):
 def sync_boc(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     db.query(BOC).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1777,6 +1818,7 @@ def sync_boc(file_location: str, db: Session):
 def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(ReadinessJetty).delete()
     count = 0
@@ -1814,6 +1856,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
 def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(WorkplanJetty).delete()
     count = 0
@@ -1843,6 +1886,7 @@ def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
 def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(ReadinessTank).delete()
     count = 0
@@ -1883,6 +1927,7 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
 def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(WorkplanTank).delete()
     count = 0
@@ -1909,6 +1954,7 @@ def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
 def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(ReadinessSPM).delete()
     count = 0
@@ -1945,6 +1991,7 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
 def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(SPMWorkplan).delete()
     count = 0
@@ -1972,6 +2019,7 @@ def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
 def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, header=2)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(IrkapProgram).delete()
     count = 0
@@ -2010,6 +2058,7 @@ def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
 def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, header=1)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     if mode == "replace":
         db.query(IrkapActual).delete()
     count = 0
@@ -2121,6 +2170,7 @@ def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
 def sync_master_data_equipment(file_location: str, db: Session, mode: str = "replace"):
     df = pd.read_excel(file_location, sheet_name=0, dtype=str)
     df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
     df = df.where(pd.notnull(df), None)
 
     if mode != "append":
