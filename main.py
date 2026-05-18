@@ -157,7 +157,7 @@ templates = Jinja2Templates(directory="templates")
 def startup():
     Base.metadata.create_all(bind=engine)
     _build_db_schema_cols()  # scan kolom kategorikal otomatis
-
+ 
 llm = ChatOpenAI(
     model="gpt-4o",
     openai_api_key=os.getenv("DINOIKI_API_KEY"),
