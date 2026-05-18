@@ -443,6 +443,7 @@ function buildHeader() {
 
 // ── BUILD ROWS ────────────────────────────────────────────────────────────────
 function buildRows(rows) {
+  _lastRows = rows;  // cache untuk re-render saat toggle kolom
   const tbody  = document.getElementById('tableBody');
   const offset = (currentPage - 1) * perPage;
   if (!rows.length) {
@@ -547,7 +548,7 @@ function toggleCol(key, visible) {
   document.getElementById('colVisBadge').textContent = (columns.length - hiddenCols.size) + '/' + columns.length;
   document.getElementById('colCount').textContent    = (columns.length - hiddenCols.size) + '/' + columns.length;
   buildHeader();
-  buildRows(_lastRows);
+  renderLastRows();
 }
 
 function colVisAll(show) {
@@ -556,15 +557,12 @@ function colVisAll(show) {
   document.querySelectorAll('.cvp-cb').forEach(cb => cb.checked = show);
   document.getElementById('colVisBadge').textContent = show ? columns.length + '/' + columns.length : '0/' + columns.length;
   buildHeader();
-  buildRows(_lastRows);
+  renderLastRows();
 }
 
+// Cache baris terakhir untuk re-render saat toggle kolom (tanpa fetch ulang)
 let _lastRows = [];
-const origBuildRows = buildRows;
-function buildRows(rows) {
-  _lastRows = rows || _lastRows;
-  origBuildRows(rows || _lastRows);
-}
+function renderLastRows() { buildRows(_lastRows); }
 
 // ── SEARCH ────────────────────────────────────────────────────────────────────
 document.getElementById('searchInput').addEventListener('input', e => {
