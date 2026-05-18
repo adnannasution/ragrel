@@ -157,6 +157,31 @@
   /* null value */
   td.null-val { color:var(--slate-300); font-style:italic; font-size:0.72rem; }
 
+  /* number / currency cells */
+  .num-cell {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    display: block;
+    text-align: right;
+  }
+  .num-cell.usd {
+    color: var(--green-700);
+    background: var(--green-50);
+    padding: 2px 7px;
+    border-radius: 5px;
+    border: 1px solid #bbf7d0;
+  }
+  .num-cell.idr {
+    color: #0369a1;
+    background: #f0f9ff;
+    padding: 2px 7px;
+    border-radius: 5px;
+    border: 1px solid #bae6fd;
+  }
+  td:has(.num-cell) { text-align: right; }
+
   /* ── EMPTY / ERROR ── */
   .state-overlay {
     position:absolute; inset:0; display:flex; flex-direction:column;
@@ -307,7 +332,49 @@ let filteredRec  = 0;
 let isLoading    = false;
 let searchTimer;
 
-// ── STATUS BADGE DETECTION ────────────────────────────────────────────────────
+// ── CURRENCY / NUMBER DETECTION ──────────────────────────────────────────────
+const CURRENCY_USD_KEYS = ['usd', 'dollar', 'economic_usd'];
+const CURRENCY_IDR_KEYS = ['idr', 'rupiah', 'equivalent_idr'];
+const NUMBER_KEYS       = ['nilai', 'anggaran', 'biaya', 'harga', 'cost', 'amount',
+                           'value', 'value2', 'target', 'desain', 'kapasitas',
+                           'average', 'jumlah', 'comp', 'budget'];
+
+function isCurrencyUSD(key) {
+  const k = key.toLowerCase();
+  return CURRENCY_USD_KEYS.some(x => k.includes(x));
+}
+function isCurrencyIDR(key) {
+  const k = key.toLowerCase();
+  return CURRENCY_IDR_KEYS.some(x => k.includes(x));
+}
+function isNumericCol(key) {
+  const k = key.toLowerCase();
+  return NUMBER_KEYS.some(x => k.includes(x));
+}
+
+function formatNumber(val, colKey) {
+  const num = parseFloat(val);
+  if (isNaN(num)) return null;
+
+  const k = colKey.toLowerCase();
+
+  if (isCurrencyUSD(k)) {
+    return '<span class="num-cell usd" title="' + num.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' USD">'
+      + 'USD ' + num.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})
+      + '</span>';
+  }
+  if (isCurrencyIDR(k)) {
+    return '<span class="num-cell idr" title="Rp ' + num.toLocaleString('id-ID') + '">'
+      + 'Rp ' + num.toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:0})
+      + '</span>';
+  }
+  if (isNumericCol(k) && num >= 1000) {
+    return '<span class="num-cell">'
+      + num.toLocaleString('id-ID', {minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits:2})
+      + '</span>';
+  }
+  return null; // bukan kolom uang, biarkan default
+}
 const STATUS_MAP = {
   // Positive
   'ok': 'green', 'good': 'green', 'aktif': 'green', 'active': 'green',
@@ -342,7 +409,12 @@ function toLabel(key) {
 }
 
 function formatCell(val, colKey) {
-  if (val === null || val === undefined || val === '') return '<span class="null-val">—</span>';
+  if (val === null || val === undefined || val === '') return '<td class="null-val">—</td>'.replace('<td class="null-val">','<span class="null-val">').replace('</td>','</span>');
+
+  // Coba format angka/currency dulu
+  const numFormatted = formatNumber(val, colKey);
+  if (numFormatted !== null) return numFormatted;
+
   const str = String(val);
 
   // Status columns — apply badge
