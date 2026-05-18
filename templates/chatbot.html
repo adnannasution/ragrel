@@ -23,6 +23,50 @@
         .stat-rows { font-size:0.68rem; font-weight:600; color:#6366f1; margin-top:4px; min-height:14px; }
         .stat-upd  { font-size:0.62rem; color:#cbd5e1; line-height:1.3; min-height:12px; }
 
+        /* ── Export Button on Cards ── */
+        .export-card-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-top: 5px;
+            padding: 2px 7px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            color: #16a34a;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s;
+            letter-spacing: 0.02em;
+        }
+        .export-card-btn:hover {
+            background: #dcfce7;
+            border-color: #86efac;
+            color: #15803d;
+            transform: scale(1.04);
+        }
+        .export-card-btn i { font-size: 0.6rem; }
+
+        /* ── Export Button in Fullscreen Header ── */
+        #fsExportBtn {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #16a34a;
+            background: #f0fdf4;
+            border: 1.5px solid #86efac;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        #fsExportBtn:hover { background: #dcfce7; border-color: #4ade80; }
+
         /* ── Upload Progress ── */
         #uploadProgress { transition: all 0.3s ease; }
         .progress-bar-inner { transition: width 0.4s ease; }
@@ -466,7 +510,12 @@
         <div id="fullscreenInner">
             <div id="fullscreenHeader">
                 <span id="fullscreenTitle">Detail</span>
-                <button id="fullscreenClose" onclick="closeFullscreen()" title="Tutup (Esc)">✕</button>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <a id="fsExportBtn" href="#" target="_blank">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </a>
+                    <button id="fullscreenClose" onclick="closeFullscreen()" title="Tutup (Esc)">✕</button>
+                </div>
             </div>
             <div id="fullscreenBody"></div>
         </div>
@@ -549,13 +598,28 @@
             const res = await fetch('/table-stats');
             const stats = await res.json();
             Object.entries(stats).forEach(([key, val]) => {
-                const rowsEl = document.getElementById(`stat-rows-${key}`);
-                const updEl  = document.getElementById(`stat-upd-${key}`);
-                const card   = document.querySelector(`[data-type="${key}"]`);
-                if (rowsEl) rowsEl.textContent = val.rows > 0 ? `${val.rows.toLocaleString('id-ID')} baris` : 'Belum ada data';
+                const rowsEl   = document.getElementById(`stat-rows-${key}`);
+                const updEl    = document.getElementById(`stat-upd-${key}`);
+                const card     = document.querySelector(`[data-type="${key}"]`);
+                const hasData  = val.rows > 0;
+
+                if (rowsEl) rowsEl.textContent = hasData ? `${val.rows.toLocaleString('id-ID')} baris` : 'Belum ada data';
                 if (updEl)  updEl.textContent  = val.updated ? `Upload: ${val.updated}` : '';
+                if (card)   card.classList.toggle('no-data', !hasData);
+
+                // Inject / update export button
                 if (card) {
-                    card.classList.toggle('no-data', val.rows === 0);
+                    let expBtn = card.querySelector('.export-card-btn');
+                    if (!expBtn) {
+                        expBtn = document.createElement('a');
+                        expBtn.className = 'export-card-btn';
+                        expBtn.target    = '_blank';
+                        expBtn.innerHTML = '<i class="fas fa-file-excel"></i> Export Excel';
+                        expBtn.addEventListener('click', e => e.stopPropagation()); // prevent card select
+                        card.appendChild(expBtn);
+                    }
+                    expBtn.href  = `/export?table=${key}`;
+                    expBtn.style.display = hasData ? 'inline-flex' : 'none';
                 }
             });
         } catch(e) { console.error('Stats error', e); }
@@ -714,20 +778,43 @@
             });
         }
 
-        // Wrap tables with expand button
+        // Wrap tables with expand button + export button
         if (isAI) {
             msgDiv.querySelectorAll('table').forEach((tbl, i) => {
                 if (tbl.closest('.table-wrapper')) return;
+                // Tag table with export key (use first download key if present)
+                if (downloadKeys[i] || downloadKeys[0]) {
+                    tbl.dataset.exportKey = downloadKeys[i] || downloadKeys[0];
+                }
                 const wrapper = document.createElement('div');
                 wrapper.className = 'table-wrapper';
                 tbl.parentNode.insertBefore(wrapper, tbl);
                 wrapper.appendChild(tbl);
-                const btn = document.createElement('button');
-                btn.className = 'expand-btn';
-                btn.title = 'Perbesar tabel';
-                btn.innerHTML = '<i class="fas fa-expand-alt"></i>';
-                btn.onclick = () => expandTable(tbl);
-                wrapper.appendChild(btn);
+
+                // Expand button
+                const btnExpand = document.createElement('button');
+                btnExpand.className = 'expand-btn';
+                btnExpand.title = 'Perbesar tabel';
+                btnExpand.style.right = '34px'; // shift left to make room for export btn
+                btnExpand.innerHTML = '<i class="fas fa-expand-alt"></i>';
+                btnExpand.onclick = () => expandTable(tbl);
+                wrapper.appendChild(btnExpand);
+
+                // Export Excel button (small, top-right corner)
+                const exportKey = tbl.dataset.exportKey;
+                if (exportKey) {
+                    const btnExport = document.createElement('a');
+                    btnExport.className = 'expand-btn';
+                    btnExport.title = 'Export Excel';
+                    btnExport.href  = `/export?table=${exportKey}`;
+                    btnExport.target = '_blank';
+                    btnExport.style.right = '6px';
+                    btnExport.style.background = 'rgba(22,163,74,0.12)';
+                    btnExport.style.borderColor = 'rgba(22,163,74,0.35)';
+                    btnExport.style.color = '#16a34a';
+                    btnExport.innerHTML = '<i class="fas fa-file-excel"></i>';
+                    wrapper.appendChild(btnExport);
+                }
             });
         }
         chatbox.scrollTop = chatbox.scrollHeight;
@@ -1008,6 +1095,7 @@
         if (!config) return;
 
         openFullscreen('📊 Chart — Fullscreen');
+        document.getElementById('fsExportBtn').style.display = 'none'; // charts not exportable
         const body = document.getElementById('fullscreenBody');
         const newCanvasId = 'fs-canvas-' + Date.now();
         body.innerHTML = `<canvas id="${newCanvasId}"></canvas>`;
@@ -1033,12 +1121,23 @@
 
     function expandTable(tbl) {
         // Count columns for title
-        const headers = Array.from(tbl.querySelectorAll('th')).map(th => th.textContent.trim());
+        const headers  = Array.from(tbl.querySelectorAll('th')).map(th => th.textContent.trim());
         const rowCount = tbl.querySelectorAll('tbody tr').length;
+        const tableKey = tbl.dataset.exportKey || null;
+
         openFullscreen(`📋 Tabel — ${rowCount} baris · ${headers.length} kolom`);
         const body = document.getElementById('fullscreenBody');
         body.innerHTML = '';
         body.appendChild(tbl.cloneNode(true));
+
+        // Show/hide export button in fullscreen header
+        const fsExport = document.getElementById('fsExportBtn');
+        if (tableKey) {
+            fsExport.href = `/export?table=${tableKey}`;
+            fsExport.style.display = 'inline-flex';
+        } else {
+            fsExport.style.display = 'none';
+        }
     }
     </script>
 </body>
