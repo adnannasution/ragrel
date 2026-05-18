@@ -180,6 +180,12 @@
     border-radius: 5px;
     border: 1px solid #bae6fd;
   }
+  .num-cell.pct {
+    padding: 2px 7px;
+    border-radius: 5px;
+    border: 1px solid;
+    font-weight: 700;
+  }
   td:has(.num-cell) { text-align: right; }
 
   /* ── EMPTY / ERROR ── */
@@ -334,23 +340,16 @@ let searchTimer;
 
 // ── CURRENCY / NUMBER DETECTION ──────────────────────────────────────────────
 const CURRENCY_USD_KEYS = ['usd', 'dollar', 'economic_usd'];
-const CURRENCY_IDR_KEYS = ['idr', 'rupiah', 'equivalent_idr'];
+const CURRENCY_IDR_KEYS = ['idr', 'rupiah', 'equivalent_idr', 'nominal', 'kdn'];
+const PERCENT_KEYS      = ['persentase', 'persen', 'percent', 'percentage', 'comp'];
 const NUMBER_KEYS       = ['nilai', 'anggaran', 'biaya', 'harga', 'cost', 'amount',
                            'value', 'value2', 'target', 'desain', 'kapasitas',
-                           'average', 'jumlah', 'comp', 'budget'];
+                           'average', 'jumlah', 'budget'];
 
-function isCurrencyUSD(key) {
-  const k = key.toLowerCase();
-  return CURRENCY_USD_KEYS.some(x => k.includes(x));
-}
-function isCurrencyIDR(key) {
-  const k = key.toLowerCase();
-  return CURRENCY_IDR_KEYS.some(x => k.includes(x));
-}
-function isNumericCol(key) {
-  const k = key.toLowerCase();
-  return NUMBER_KEYS.some(x => k.includes(x));
-}
+function isCurrencyUSD(key) { return CURRENCY_USD_KEYS.some(x => key.includes(x)); }
+function isCurrencyIDR(key) { return CURRENCY_IDR_KEYS.some(x => key.includes(x)); }
+function isPercent(key)     { return PERCENT_KEYS.some(x => key.includes(x)); }
+function isNumericCol(key)  { return NUMBER_KEYS.some(x => key.includes(x)); }
 
 function formatNumber(val, colKey) {
   const num = parseFloat(val);
@@ -358,14 +357,24 @@ function formatNumber(val, colKey) {
 
   const k = colKey.toLowerCase();
 
+  // Persentase — deteksi nilai 0–1 (desimal) atau 0–100
+  if (isPercent(k)) {
+    const pct = num <= 1 ? num * 100 : num;
+    const color = pct >= 75 ? 'var(--green-700)' : pct >= 40 ? 'var(--amber-600)' : 'var(--red-600)';
+    const bg    = pct >= 75 ? 'var(--green-50)'  : pct >= 40 ? 'var(--amber-100)' : 'var(--red-100)';
+    const border= pct >= 75 ? '#bbf7d0'           : pct >= 40 ? '#fde68a'          : '#fecaca';
+    return `<span class="num-cell pct" style="color:${color};background:${bg};border-color:${border}">` +
+           pct.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2}) + '%</span>';
+  }
+
   if (isCurrencyUSD(k)) {
     return '<span class="num-cell usd" title="' + num.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' USD">'
-      + 'USD ' + num.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})
+      + 'USD&nbsp;' + num.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})
       + '</span>';
   }
   if (isCurrencyIDR(k)) {
     return '<span class="num-cell idr" title="Rp ' + num.toLocaleString('id-ID') + '">'
-      + 'Rp ' + num.toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:0})
+      + 'Rp&nbsp;' + num.toLocaleString('id-ID', {minimumFractionDigits:0, maximumFractionDigits:0})
       + '</span>';
   }
   if (isNumericCol(k) && num >= 1000) {
@@ -373,7 +382,7 @@ function formatNumber(val, colKey) {
       + num.toLocaleString('id-ID', {minimumFractionDigits: Number.isInteger(num) ? 0 : 2, maximumFractionDigits:2})
       + '</span>';
   }
-  return null; // bukan kolom uang, biarkan default
+  return null;
 }
 const STATUS_MAP = {
   // Positive
