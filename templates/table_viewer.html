@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ table_label }} — Maintenance AI</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root {
+    --indigo-900:#1e1b4b; --indigo-800:#312e81; --indigo-700:#3730a3;
+    --indigo-600:#4f46e5; --indigo-500:#6366f1; --indigo-200:#c7d2fe;
+    --indigo-100:#e0e7ff; --indigo-50:#eef2ff;
+    --slate-800:#1e293b; --slate-700:#334155; --slate-600:#475569;
+    --slate-500:#64748b; --slate-400:#94a3b8; --slate-300:#cbd5e1;
+    --slate-200:#e2e8f0; --slate-100:#f1f5f9; --slate-50:#f8fafc;
+    --green-700:#15803d; --green-600:#16a34a; --green-100:#dcfce7; --green-50:#f0fdf4;
+    --red-600:#dc2626; --red-100:#fee2e2; --amber-600:#d97706; --amber-100:#fef3c7;
+    --teal-600:#0d9488; --teal-100:#ccfbf1;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Inter','Segoe UI',sans-serif; background:var(--slate-100); height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(135deg, var(--indigo-900) 0%, var(--indigo-700) 100%);
+    padding: 0 24px; height: 58px;
+    display:flex; align-items:center; justify-content:space-between;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.3); flex-shrink:0; gap:16px;
+  }
+  .h-left { display:flex; align-items:center; gap:12px; min-width:0; }
+  .h-icon { font-size:1.5rem; }
+  .h-texts { min-width:0; }
+  .h-title { color:#fff; font-size:0.95rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .h-sub   { color:rgba(255,255,255,0.5); font-size:0.72rem; }
+  .h-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .btn-sm {
+    display:flex; align-items:center; gap:6px; padding:6px 13px;
+    border-radius:8px; font-size:0.78rem; font-weight:600; cursor:pointer;
+    text-decoration:none; transition:all 0.15s; border:none; white-space:nowrap;
+  }
+  .btn-ghost { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.85); }
+  .btn-ghost:hover { background:rgba(255,255,255,0.2); color:#fff; }
+  .btn-green { background:var(--green-50); border:1.5px solid #86efac; color:var(--green-600); }
+  .btn-green:hover { background:var(--green-100); }
+  .btn-indigo { background:var(--indigo-600); color:#fff; border:none; }
+  .btn-indigo:hover { background:var(--indigo-700); }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    background:#fff; border-bottom:1px solid var(--slate-200);
+    padding:10px 20px; display:flex; align-items:center; gap:10px;
+    flex-shrink:0; flex-wrap:wrap;
+  }
+  .search-wrap { position:relative; flex:1; min-width:200px; max-width:380px; }
+  .search-wrap i { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--slate-400); font-size:0.82rem; }
+  .search-input {
+    width:100%; padding:8px 32px 8px 32px; border:1.5px solid var(--slate-200);
+    border-radius:8px; font-size:0.83rem; color:var(--slate-700);
+    background:#fff; outline:none; transition:border-color 0.15s, box-shadow 0.15s;
+  }
+  .search-input:focus { border-color:var(--indigo-500); box-shadow:0 0 0 3px rgba(99,102,241,0.12); }
+  .search-clear { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--slate-400); cursor:pointer; font-size:0.8rem; display:none; }
+  .search-clear:hover { color:var(--slate-600); }
+
+  .select-sm {
+    padding:7px 12px; border:1.5px solid var(--slate-200); border-radius:8px;
+    font-size:0.8rem; color:var(--slate-700); background:#fff; cursor:pointer; outline:none;
+  }
+  .select-sm:focus { border-color:var(--indigo-500); }
+
+  .toolbar-sep { width:1px; height:28px; background:var(--slate-200); }
+
+  /* col visibility btn */
+  .col-vis-btn {
+    display:flex; align-items:center; gap:6px; padding:7px 12px;
+    background:#fff; border:1.5px solid var(--slate-200); border-radius:8px;
+    font-size:0.8rem; color:var(--slate-600); cursor:pointer; transition:all 0.15s; white-space:nowrap;
+  }
+  .col-vis-btn:hover { border-color:var(--indigo-300); color:var(--indigo-600); }
+  .col-vis-btn.active { border-color:var(--indigo-500); color:var(--indigo-600); background:var(--indigo-50); }
+
+  /* stats right side */
+  .toolbar-stats { margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .stat-pill {
+    display:flex; align-items:center; gap:5px; background:var(--slate-50);
+    border:1px solid var(--slate-200); border-radius:6px; padding:4px 10px;
+    font-size:0.75rem; color:var(--slate-500);
+  }
+  .stat-pill .n { font-weight:700; color:var(--indigo-600); }
+
+  /* ── COL VISIBILITY PANEL ── */
+  .col-vis-panel {
+    position:fixed; top:130px; left:20px; z-index:200;
+    background:#fff; border:1.5px solid var(--slate-200); border-radius:12px;
+    box-shadow:0 8px 32px rgba(0,0,0,0.12); width:260px; max-height:400px;
+    display:none; flex-direction:column; overflow:hidden;
+  }
+  .col-vis-panel.open { display:flex; }
+  .cvp-header { padding:12px 16px; border-bottom:1px solid var(--slate-100); display:flex; align-items:center; justify-content:space-between; }
+  .cvp-title  { font-size:0.82rem; font-weight:700; color:var(--slate-700); }
+  .cvp-actions { display:flex; gap:6px; }
+  .cvp-act-btn { font-size:0.72rem; color:var(--indigo-600); cursor:pointer; padding:2px 6px; border-radius:4px; background:var(--indigo-50); border:none; }
+  .cvp-list { overflow-y:auto; padding:8px; flex:1; }
+  .cvp-item { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:6px; cursor:pointer; }
+  .cvp-item:hover { background:var(--slate-50); }
+  .cvp-cb { width:15px; height:15px; accent-color:var(--indigo-600); cursor:pointer; }
+  .cvp-col-name { font-size:0.78rem; color:var(--slate-700); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* ── TABLE CONTAINER ── */
+  .table-container { flex:1; overflow:auto; position:relative; }
+
+  table { border-collapse:collapse; width:100%; min-width:max-content; font-size:0.8rem; }
+
+  /* sticky header */
+  thead th {
+    position:sticky; top:0; z-index:10;
+    background:var(--indigo-800); color:#fff;
+    padding:11px 14px; text-align:left; white-space:nowrap;
+    border-right:1px solid rgba(255,255,255,0.08);
+    user-select:none;
+  }
+  thead th:last-child { border-right:none; }
+  thead th.sortable { cursor:pointer; }
+  thead th.sortable:hover { background:var(--indigo-700); }
+  thead th .th-inner { display:flex; align-items:center; gap:6px; }
+  thead th .sort-icon { font-size:0.65rem; opacity:0.5; }
+  thead th.sort-asc  .sort-icon, thead th.sort-desc .sort-icon { opacity:1; }
+  thead th.sort-asc  .sort-icon::before { content:'\f0de'; font-family:'Font Awesome 6 Free'; font-weight:900; }
+  thead th.sort-desc .sort-icon::before { content:'\f0dd'; font-family:'Font Awesome 6 Free'; font-weight:900; }
+  thead th:not(.sort-asc):not(.sort-desc) .sort-icon::before { content:'\f0dc'; font-family:'Font Awesome 6 Free'; font-weight:900; }
+
+  /* row number col */
+  .col-rownum { width:50px; text-align:center; color:rgba(255,255,255,0.5); font-size:0.7rem; }
+  td.col-rownum { background:var(--slate-50); color:var(--slate-400); font-size:0.7rem; text-align:center; font-weight:600; border-right:1px solid var(--slate-200); }
+
+  /* body rows */
+  tbody tr { border-bottom:1px solid var(--slate-100); transition:background 0.1s; }
+  tbody tr:hover td { background:#f0f4ff; }
+  tbody tr:nth-child(even) td { background:var(--slate-50); }
+  tbody tr:nth-child(even):hover td { background:#f0f4ff; }
+  td { padding:9px 14px; color:var(--slate-700); vertical-align:middle; max-width:280px; }
+  td .cell-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+
+  /* status badges */
+  .badge {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:2px 8px; border-radius:100px; font-size:0.68rem; font-weight:600;
+    white-space:nowrap; letter-spacing:0.02em;
+  }
+  .badge-green  { background:var(--green-100);  color:var(--green-700); }
+  .badge-red    { background:var(--red-100);    color:var(--red-600); }
+  .badge-amber  { background:var(--amber-100);  color:var(--amber-600); }
+  .badge-indigo { background:var(--indigo-100); color:var(--indigo-700); }
+  .badge-teal   { background:var(--teal-100);   color:var(--teal-600); }
+  .badge-gray   { background:var(--slate-100);  color:var(--slate-500); }
+
+  /* null value */
+  td.null-val { color:var(--slate-300); font-style:italic; font-size:0.72rem; }
+
+  /* ── EMPTY / ERROR ── */
+  .state-overlay {
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:12px;
+    background:#fff; color:var(--slate-400); font-size:0.9rem;
+  }
+  .state-overlay i { font-size:2.5rem; color:var(--slate-300); }
+
+  /* ── LOADING OVERLAY ── */
+  #loadingOverlay {
+    position:absolute; inset:0; background:rgba(255,255,255,0.75);
+    display:flex; align-items:center; justify-content:center;
+    z-index:50; backdrop-filter:blur(2px);
+  }
+  .spinner { width:32px; height:32px; border:3px solid var(--indigo-100); border-top:3px solid var(--indigo-600); border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  /* ── PAGINATION ── */
+  .pagination-bar {
+    background:#fff; border-top:1px solid var(--slate-200);
+    padding:10px 20px; display:flex; align-items:center; gap:10px;
+    flex-shrink:0; flex-wrap:wrap;
+  }
+  .pag-info { font-size:0.78rem; color:var(--slate-500); margin-right:auto; }
+  .pag-info b { color:var(--slate-700); }
+  .pag-btns { display:flex; gap:4px; align-items:center; }
+  .pag-btn {
+    min-width:32px; height:32px; padding:0 8px;
+    border:1.5px solid var(--slate-200); background:#fff; border-radius:7px;
+    font-size:0.78rem; color:var(--slate-600); cursor:pointer; transition:all 0.15s;
+    display:flex; align-items:center; justify-content:center; font-weight:600;
+  }
+  .pag-btn:hover:not(:disabled) { border-color:var(--indigo-400); color:var(--indigo-600); background:var(--indigo-50); }
+  .pag-btn.active { background:var(--indigo-600); color:#fff; border-color:var(--indigo-600); }
+  .pag-btn:disabled { opacity:0.35; cursor:default; }
+  .pag-ellipsis { color:var(--slate-400); font-size:0.85rem; padding:0 4px; }
+
+  /* ── TOOLTIP ── */
+  [data-tooltip] { position:relative; }
+  [data-tooltip]:hover::after {
+    content:attr(data-tooltip); position:absolute; bottom:calc(100% + 6px); left:0;
+    background:var(--slate-800); color:#fff; font-size:0.72rem; white-space:pre-wrap;
+    max-width:320px; padding:6px 10px; border-radius:6px; z-index:999;
+    line-height:1.4; box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    pointer-events:none;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    header { padding:0 12px; }
+    .toolbar { padding:8px 12px; }
+    .pagination-bar { padding:8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="h-left">
+    <div class="h-icon">{{ table_icon }}</div>
+    <div class="h-texts">
+      <div class="h-title">{{ table_label }}</div>
+      <div class="h-sub" id="headerSub">Memuat data...</div>
+    </div>
+  </div>
+  <div class="h-right">
+    <a href="/tables" class="btn-sm btn-ghost"><i class="fas fa-th-large"></i> Semua Tabel</a>
+    <a href="/export?table={{ table_key }}" class="btn-sm btn-green" target="_blank"><i class="fas fa-file-excel"></i> Export Excel</a>
+    <a href="/" class="btn-sm btn-ghost"><i class="fas fa-robot"></i> Chatbot</a>
+  </div>
+</header>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <i class="fas fa-search"></i>
+    <input class="search-input" id="searchInput" type="text" placeholder="Cari di semua kolom...">
+    <i class="fas fa-times search-clear" id="searchClear"></i>
+  </div>
+
+  <div class="toolbar-sep"></div>
+
+  <select class="select-sm" id="perPage" title="Baris per halaman">
+    <option value="25">25 baris</option>
+    <option value="50">50 baris</option>
+    <option value="100">100 baris</option>
+    <option value="250">250 baris</option>
+    <option value="500">500 baris</option>
+  </select>
+
+  <button class="col-vis-btn" id="colVisBtn" onclick="toggleColPanel()">
+    <i class="fas fa-columns"></i> Kolom
+    <span id="colVisBadge" style="background:var(--indigo-100);color:var(--indigo-700);padding:1px 6px;border-radius:4px;font-size:0.7rem;font-weight:700;"></span>
+  </button>
+
+  <div class="toolbar-stats">
+    <div class="stat-pill">Total: <span class="n" id="totalRows">—</span></div>
+    <div class="stat-pill">Filter: <span class="n" id="filteredRows">—</span></div>
+    <div class="stat-pill" id="pillCols">Kolom: <span class="n" id="colCount">—</span></div>
+  </div>
+</div>
+
+<!-- Column Visibility Panel -->
+<div class="col-vis-panel" id="colVisPanel">
+  <div class="cvp-header">
+    <span class="cvp-title"><i class="fas fa-columns"></i> Tampilkan Kolom</span>
+    <div class="cvp-actions">
+      <button class="cvp-act-btn" onclick="colVisAll(true)">Semua</button>
+      <button class="cvp-act-btn" onclick="colVisAll(false)">Hapus</button>
+    </div>
+  </div>
+  <div class="cvp-list" id="colVisList"></div>
+</div>
+
+<!-- Table -->
+<div class="table-container" id="tableContainer">
+  <div class="state-overlay" id="emptyState">
+    <i class="fas fa-circle-notch fa-spin" style="color:var(--indigo-400)"></i>
+    <span>Memuat data...</span>
+  </div>
+  <div id="loadingOverlay" style="display:none"><div class="spinner"></div></div>
+  <table id="dataTable" style="display:none">
+    <thead><tr id="headerRow"></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+<div class="pagination-bar">
+  <div class="pag-info" id="pagInfo">—</div>
+  <div class="pag-btns" id="pagBtns"></div>
+</div>
+
+<script>
+const TABLE_KEY   = "{{ table_key }}";
+const TABLE_LABEL = "{{ table_label }}";
+
+let columns      = [];      // all column defs: {key, label}
+let hiddenCols   = new Set();
+let currentPage  = 1;
+let perPage      = 25;
+let searchVal    = '';
+let sortCol      = '';
+let sortDir      = 'asc';
+let totalRec     = 0;
+let filteredRec  = 0;
+let isLoading    = false;
+let searchTimer;
+
+// ── STATUS BADGE DETECTION ────────────────────────────────────────────────────
+const STATUS_MAP = {
+  // Positive
+  'ok': 'green', 'good': 'green', 'aktif': 'green', 'active': 'green',
+  'normal': 'green', 'tersedia': 'green', 'ready': 'green', 'done': 'green',
+  'selesai': 'green', 'available': 'green', 'valid': 'green', 'certified': 'green',
+  'on plan': 'green', 'on schedule': 'green', 'completed': 'green',
+  // Warning
+  'warning': 'amber', 'hampir expired': 'amber', 'almost': 'amber',
+  'in progress': 'amber', 'proses': 'amber', 'partial': 'amber',
+  'monitor': 'amber', 'pending': 'amber', 'deferred': 'amber',
+  // Danger
+  'expired': 'red', 'critical': 'red', 'overdue': 'red', 'fail': 'red',
+  'failed': 'red', 'breakdown': 'red', 'rusak': 'red', 'gagal': 'red',
+  'not ready': 'red', 'not ok': 'red', 'tidak aktif': 'red', 'inactive': 'red',
+  'delay': 'red', 'behind': 'red',
+  // Info
+  'standby': 'teal', 'spare': 'teal', 'hold': 'indigo',
+  'planned': 'indigo', 'scheduled': 'indigo', 'rencana': 'indigo',
+};
+
+function getBadgeClass(val) {
+  if (!val) return null;
+  const v = String(val).toLowerCase().trim();
+  for (const [k, cls] of Object.entries(STATUS_MAP)) {
+    if (v === k || v.startsWith(k)) return cls;
+  }
+  return null;
+}
+
+function toLabel(key) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function formatCell(val, colKey) {
+  if (val === null || val === undefined || val === '') return '<span class="null-val">—</span>';
+  const str = String(val);
+
+  // Status columns — apply badge
+  const badgeCls = getBadgeClass(str);
+  if (badgeCls && str.length < 40 &&
+      (colKey.includes('status') || colKey.includes('traffic') ||
+       colKey.includes('prognosa') || colKey.includes('step') ||
+       colKey.includes('progress') || colKey.includes('kondisi'))) {
+    return `<span class="badge badge-${badgeCls}">${escHtml(str)}</span>`;
+  }
+
+  // Long text — truncate with tooltip
+  if (str.length > 60) {
+    const short = str.slice(0, 60) + '…';
+    const tooltip = str.replace(/"/g, '&quot;');
+    return `<span class="cell-text" data-tooltip="${tooltip}">${escHtml(short)}</span>`;
+  }
+
+  return `<span class="cell-text">${escHtml(str)}</span>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── FETCH DATA ────────────────────────────────────────────────────────────────
+async function fetchData(showOverlay = true) {
+  if (isLoading) return;
+  isLoading = true;
+  if (showOverlay) document.getElementById('loadingOverlay').style.display = 'flex';
+
+  try {
+    const params = new URLSearchParams({
+      page: currentPage, per_page: perPage,
+      search: searchVal,
+      sort_col: sortCol, sort_dir: sortDir,
+    });
+    const res  = await fetch(`/api/table-data/${TABLE_KEY}?${params}`);
+    const data = await res.json();
+
+    if (data.error) { showError(data.error); return; }
+
+    // First load — set up columns
+    if (columns.length === 0 && data.columns) {
+      columns = data.columns.map(k => ({ key: k, label: toLabel(k) }));
+      // Default: hide columns beyond 12 to keep table manageable
+      if (columns.length > 12) {
+        columns.slice(12).forEach(c => hiddenCols.add(c.key));
+      }
+      buildHeader();
+      buildColPanel();
+      document.getElementById('dataTable').style.display = '';
+      document.getElementById('emptyState').style.display = 'none';
+    }
+
+    totalRec    = data.total;
+    filteredRec = data.filtered;
+    document.getElementById('totalRows').textContent    = totalRec.toLocaleString('id-ID');
+    document.getElementById('filteredRows').textContent = filteredRec.toLocaleString('id-ID');
+    document.getElementById('colCount').textContent     = (columns.length - hiddenCols.size) + '/' + columns.length;
+    document.getElementById('headerSub').textContent    = `${totalRec.toLocaleString('id-ID')} baris · ${columns.length} kolom`;
+    document.getElementById('colVisBadge').textContent  = (columns.length - hiddenCols.size) + '/' + columns.length;
+
+    buildRows(data.data);
+    buildPagination(data.total_pages, data.page);
+
+  } catch(e) {
+    showError('Gagal memuat data: ' + e.message);
+  } finally {
+    isLoading = false;
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+}
+
+function showError(msg) {
+  document.getElementById('emptyState').innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#fbbf24"></i><span>${msg}</span>`;
+  document.getElementById('emptyState').style.display = 'flex';
+  document.getElementById('dataTable').style.display = 'none';
+}
+
+// ── BUILD TABLE HEADER ────────────────────────────────────────────────────────
+function buildHeader() {
+  const tr = document.getElementById('headerRow');
+  tr.innerHTML = '<th class="col-rownum">#</th>';
+  columns.forEach(col => {
+    if (hiddenCols.has(col.key)) return;
+    const isSorted = sortCol === col.key;
+    const cls = isSorted ? `sort-${sortDir}` : '';
+    tr.innerHTML += `
+      <th class="sortable ${cls}" data-col="${col.key}" onclick="handleSort('${col.key}')">
+        <div class="th-inner">
+          ${escHtml(col.label)}
+          <span class="sort-icon"></span>
+        </div>
+      </th>`;
+  });
+}
+
+// ── BUILD ROWS ────────────────────────────────────────────────────────────────
+function buildRows(rows) {
+  const tbody  = document.getElementById('tableBody');
+  const offset = (currentPage - 1) * perPage;
+  if (!rows.length) {
+    const colspan = columns.filter(c => !hiddenCols.has(c.key)).length + 1;
+    tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center;padding:40px;color:var(--slate-400)">
+      <i class="fas fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:8px"></i>
+      Tidak ada data ditemukan</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((row, i) => {
+    const cells = columns
+      .filter(c => !hiddenCols.has(c.key))
+      .map(c => {
+        const val = row[c.key];
+        return `<td>${formatCell(val, c.key)}</td>`;
+      }).join('');
+    return `<tr><td class="col-rownum">${offset + i + 1}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// ── SORTING ───────────────────────────────────────────────────────────────────
+function handleSort(col) {
+  if (sortCol === col) {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortCol = col;
+    sortDir = 'asc';
+  }
+  currentPage = 1;
+  buildHeader();
+  fetchData();
+}
+
+// ── PAGINATION ────────────────────────────────────────────────────────────────
+function buildPagination(totalPages, page) {
+  const start = (page - 1) * perPage + 1;
+  const end   = Math.min(page * perPage, filteredRec);
+  document.getElementById('pagInfo').innerHTML =
+    `Menampilkan <b>${start.toLocaleString('id-ID')}–${end.toLocaleString('id-ID')}</b> dari <b>${filteredRec.toLocaleString('id-ID')}</b> baris`;
+
+  const btns = document.getElementById('pagBtns');
+  btns.innerHTML = '';
+
+  const prev = mkPagBtn('<i class="fas fa-chevron-left"></i>', () => goPage(page-1), page <= 1);
+  btns.appendChild(prev);
+
+  // Page numbers with ellipsis
+  const pages = smartPages(page, totalPages);
+  let last = 0;
+  pages.forEach(p => {
+    if (p - last > 1) btns.insertAdjacentHTML('beforeend', `<span class="pag-ellipsis">…</span>`);
+    btns.appendChild(mkPagBtn(p, () => goPage(p), false, p === page));
+    last = p;
+  });
+
+  const next = mkPagBtn('<i class="fas fa-chevron-right"></i>', () => goPage(page+1), page >= totalPages);
+  btns.appendChild(next);
+}
+
+function smartPages(cur, total) {
+  if (total <= 7) return Array.from({length:total}, (_,i)=>i+1);
+  const out = new Set([1, total, cur, cur-1, cur+1].filter(p => p>=1 && p<=total));
+  return [...out].sort((a,b)=>a-b);
+}
+
+function mkPagBtn(html, onClick, disabled, active = false) {
+  const btn = document.createElement('button');
+  btn.className = 'pag-btn' + (active ? ' active' : '');
+  btn.innerHTML = html;
+  btn.disabled  = disabled;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function goPage(p) {
+  if (p < 1 || isLoading) return;
+  currentPage = p;
+  fetchData();
+}
+
+// ── COLUMN VISIBILITY ─────────────────────────────────────────────────────────
+function buildColPanel() {
+  const list = document.getElementById('colVisList');
+  list.innerHTML = columns.map(col => `
+    <label class="cvp-item">
+      <input type="checkbox" class="cvp-cb" data-col="${col.key}" ${hiddenCols.has(col.key) ? '' : 'checked'}
+             onchange="toggleCol('${col.key}', this.checked)">
+      <span class="cvp-col-name">${escHtml(col.label)}</span>
+    </label>`).join('');
+}
+
+function toggleColPanel() {
+  const panel = document.getElementById('colVisPanel');
+  const btn   = document.getElementById('colVisBtn');
+  panel.classList.toggle('open');
+  btn.classList.toggle('active');
+}
+
+function toggleCol(key, visible) {
+  if (visible) hiddenCols.delete(key);
+  else hiddenCols.add(key);
+  document.getElementById('colVisBadge').textContent = (columns.length - hiddenCols.size) + '/' + columns.length;
+  document.getElementById('colCount').textContent    = (columns.length - hiddenCols.size) + '/' + columns.length;
+  buildHeader();
+  buildRows(_lastRows);
+}
+
+function colVisAll(show) {
+  if (show) hiddenCols.clear();
+  else columns.forEach(c => hiddenCols.add(c.key));
+  document.querySelectorAll('.cvp-cb').forEach(cb => cb.checked = show);
+  document.getElementById('colVisBadge').textContent = show ? columns.length + '/' + columns.length : '0/' + columns.length;
+  buildHeader();
+  buildRows(_lastRows);
+}
+
+let _lastRows = [];
+const origBuildRows = buildRows;
+function buildRows(rows) {
+  _lastRows = rows || _lastRows;
+  origBuildRows(rows || _lastRows);
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  const val = e.target.value;
+  document.getElementById('searchClear').style.display = val ? 'block' : 'none';
+  searchTimer = setTimeout(() => {
+    searchVal   = val;
+    currentPage = 1;
+    fetchData();
+  }, 350);
+});
+
+document.getElementById('searchClear').addEventListener('click', () => {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchClear').style.display = 'none';
+  searchVal   = '';
+  currentPage = 1;
+  fetchData();
+});
+
+// ── PER PAGE ─────────────────────────────────────────────────────────────────
+document.getElementById('perPage').addEventListener('change', e => {
+  perPage     = parseInt(e.target.value);
+  currentPage = 1;
+  fetchData();
+});
+
+// ── CLICK OUTSIDE PANEL ───────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const panel = document.getElementById('colVisPanel');
+  const btn   = document.getElementById('colVisBtn');
+  if (!panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+    btn.classList.remove('active');
+  }
+});
+
+// ── KEYBOARD ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('colVisPanel').classList.remove('open');
+    document.getElementById('colVisBtn').classList.remove('active');
+  }
+  if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+});
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+fetchData(false);
+</script>
+</body>
+</html>

@@ -18,6 +18,7 @@ from langchain_experimental.sql import SQLDatabaseChain
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, AIMessage
 from dotenv import load_dotenv
+from table_routes import router as table_router
 
 load_dotenv()
 
@@ -146,6 +147,10 @@ def _save_upload_time(data_type: str):
     _build_db_schema_cols()
 
 app = FastAPI()
+
+
+app.include_router(table_router)
+
 templates = Jinja2Templates(directory="templates")
 
 @app.on_event("startup")

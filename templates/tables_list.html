@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Tables — Maintenance AI</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root {
+    --indigo-900: #1e1b4b; --indigo-800: #312e81; --indigo-700: #3730a3;
+    --indigo-600: #4f46e5; --indigo-500: #6366f1; --indigo-100: #e0e7ff;
+    --indigo-50: #eef2ff; --slate-700: #334155; --slate-500: #64748b;
+    --slate-200: #e2e8f0; --slate-100: #f1f5f9; --slate-50: #f8fafc;
+    --green-600: #16a34a; --green-100: #dcfce7; --green-50: #f0fdf4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--slate-100); min-height: 100vh; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--indigo-900) 0%, var(--indigo-700) 100%);
+    padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-icon { width: 42px; height: 42px; background: rgba(255,255,255,0.12); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+  .header-title { color: #fff; font-size: 1.1rem; font-weight: 700; }
+  .header-sub   { color: rgba(255,255,255,0.55); font-size: 0.78rem; margin-top: 2px; }
+  .btn-back {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85); padding: 8px 16px; border-radius: 8px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: all 0.15s;
+  }
+  .btn-back:hover { background: rgba(255,255,255,0.18); color: #fff; }
+
+  /* ── Summary Bar ── */
+  .summary-bar {
+    background: #fff; border-bottom: 1px solid var(--slate-200);
+    padding: 14px 32px; display: flex; align-items: center; gap: 24px;
+    flex-wrap: wrap;
+  }
+  .summary-stat { display: flex; align-items: center; gap: 8px; }
+  .summary-dot  { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo-500); }
+  .summary-dot.green { background: var(--green-600); }
+  .summary-dot.gray  { background: #cbd5e1; }
+  .summary-label { font-size: 0.8rem; color: var(--slate-500); }
+  .summary-value { font-size: 0.8rem; font-weight: 700; color: var(--slate-700); }
+
+  /* ── Search ── */
+  .toolbar { padding: 20px 32px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .search-wrap { position: relative; flex: 1; min-width: 240px; max-width: 400px; }
+  .search-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 0.85rem; }
+  .search-input {
+    width: 100%; padding: 9px 12px 9px 36px;
+    border: 1.5px solid var(--slate-200); border-radius: 9px;
+    font-size: 0.85rem; background: #fff; color: var(--slate-700);
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .search-input:focus { border-color: var(--indigo-500); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+  .filter-select {
+    padding: 9px 14px; border: 1.5px solid var(--slate-200); border-radius: 9px;
+    font-size: 0.82rem; color: var(--slate-700); background: #fff; cursor: pointer;
+    outline: none;
+  }
+  .filter-select:focus { border-color: var(--indigo-500); }
+
+  /* ── Grid ── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 0 32px 40px; }
+
+  /* ── Card ── */
+  .card {
+    background: #fff; border-radius: 14px; border: 1.5px solid var(--slate-200);
+    overflow: hidden; transition: all 0.2s; position: relative;
+    display: flex; flex-direction: column;
+  }
+  .card:hover { box-shadow: 0 8px 32px rgba(79,70,229,0.13); border-color: var(--indigo-500); transform: translateY(-2px); }
+  .card.no-data { opacity: 0.55; }
+  .card.no-data:hover { transform: none; box-shadow: none; border-color: var(--slate-200); }
+
+  .card-header { padding: 16px 16px 12px; display: flex; align-items: flex-start; gap: 12px; }
+  .card-icon-wrap {
+    width: 44px; height: 44px; border-radius: 11px;
+    background: var(--indigo-50); display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; flex-shrink: 0;
+  }
+  .card-meta { flex: 1; min-width: 0; }
+  .card-name { font-size: 0.88rem; font-weight: 700; color: var(--slate-700); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-table-name { font-size: 0.68rem; color: #94a3b8; margin-top: 2px; font-family: monospace; }
+
+  .card-stats { padding: 0 16px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .stat-chip {
+    display: flex; align-items: center; gap: 5px;
+    background: var(--slate-50); border: 1px solid var(--slate-200);
+    border-radius: 6px; padding: 3px 8px; font-size: 0.72rem; color: var(--slate-500);
+  }
+  .stat-chip .val { font-weight: 700; color: var(--indigo-600); }
+  .stat-chip.green .val { color: var(--green-600); }
+
+  .card-upd { padding: 0 16px 12px; font-size: 0.68rem; color: #94a3b8; }
+
+  .card-actions { padding: 10px 12px; border-top: 1px solid var(--slate-100); display: flex; gap: 8px; margin-top: auto; }
+  .btn-view {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    background: var(--indigo-600); color: #fff; padding: 7px 12px; border-radius: 8px;
+    font-size: 0.78rem; font-weight: 600; cursor: pointer; text-decoration: none;
+    transition: background 0.15s;
+  }
+  .btn-view:hover { background: var(--indigo-700); }
+  .btn-view.disabled { background: var(--slate-200); color: #94a3b8; pointer-events: none; }
+  .btn-export {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    background: var(--green-50); border: 1.5px solid #86efac; color: var(--green-600);
+    padding: 7px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: all 0.15s; white-space: nowrap;
+  }
+  .btn-export:hover { background: var(--green-100); }
+  .btn-export.disabled { opacity: 0.4; pointer-events: none; }
+
+  /* ── Empty state ── */
+  .empty { text-align: center; padding: 60px 20px; color: var(--slate-500); }
+  .empty i { font-size: 2.5rem; color: #cbd5e1; margin-bottom: 12px; }
+  .empty p { font-size: 0.9rem; }
+
+  /* ── Loading ── */
+  .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  /* ── Badge ── */
+  .badge-new {
+    position: absolute; top: 10px; right: 10px;
+    background: var(--indigo-100); color: var(--indigo-700);
+    font-size: 0.6rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* ── Footer ── */
+  footer { text-align: center; padding: 12px; font-size: 0.75rem; color: #94a3b8; border-top: 1px solid var(--slate-200); background: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="header-icon">🗃️</div>
+    <div>
+      <div class="header-title">Data Tables — Maintenance AI</div>
+      <div class="header-sub">Kelola & lihat semua tabel database</div>
+    </div>
+  </div>
+  <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Kembali ke Chatbot</a>
+</header>
+
+<div class="summary-bar">
+  <div class="summary-stat">
+    <div class="summary-dot"></div>
+    <span class="summary-label">Total Tabel</span>
+    <span class="summary-value" id="totalTables">—</span>
+  </div>
+  <div class="summary-stat">
+    <div class="summary-dot green"></div>
+    <span class="summary-label">Sudah ada data</span>
+    <span class="summary-value" id="tablesWithData">—</span>
+  </div>
+  <div class="summary-stat">
+    <div class="summary-dot gray"></div>
+    <span class="summary-label">Belum ada data</span>
+    <span class="summary-value" id="tablesEmpty">—</span>
+  </div>
+  <div class="summary-stat" style="margin-left:auto;">
+    <span class="summary-label">Total Records</span>
+    <span class="summary-value" id="totalRecords">—</span>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="search-wrap">
+    <i class="fas fa-search"></i>
+    <input type="text" class="search-input" id="searchInput" placeholder="Cari nama tabel...">
+  </div>
+  <select class="filter-select" id="filterStatus">
+    <option value="all">Semua Tabel</option>
+    <option value="has_data">Ada Data</option>
+    <option value="no_data">Belum Ada Data</option>
+  </select>
+</div>
+
+<div class="grid" id="tableGrid">
+  <!-- skeleton cards -->
+  <script>
+    for(let i=0;i<12;i++) document.write(`
+      <div class="card"><div class="card-header">
+        <div class="card-icon-wrap skeleton" style="background:#e0e7ff"></div>
+        <div style="flex:1"><div class="skeleton" style="height:14px;width:70%;margin-bottom:6px"></div>
+        <div class="skeleton" style="height:10px;width:50%"></div></div>
+      </div></div>`);
+  </script>
+</div>
+
+<footer>Maintenance AI Assistant &mdash; Data Management Portal</footer>
+
+<script>
+const TABLE_META = [
+  { key: "anggaran",        label: "Anggaran Maintenance",    icon: "💰", db: "anggaran_maintenance" },
+  { key: "pipeline",        label: "Pipeline Inspection",     icon: "🔧", db: "pipeline_inspection" },
+  { key: "rotor",           label: "Rotor Monitoring",        icon: "⚙️", db: "rotor_monitoring" },
+  { key: "atg",             label: "ATG Monitoring",          icon: "🛢️", db: "atg_monitoring" },
+  { key: "metering",        label: "Metering Monitoring",     icon: "📏", db: "metering_monitoring" },
+  { key: "badactor",        label: "Bad Actor Monitoring",    icon: "🚨", db: "bad_actor_monitoring" },
+  { key: "icu",             label: "ICU Monitoring",          icon: "🔴", db: "icu_monitoring" },
+  { key: "prokja_atg",      label: "Program Kerja ATG",       icon: "📋", db: "program_kerja_atg" },
+  { key: "paf",             label: "PAF",                     icon: "📈", db: "paf" },
+  { key: "zero_clamp",      label: "Zero Clamp",              icon: "🔩", db: "zero_clamp" },
+  { key: "issue_paf",       label: "Issue PAF",               icon: "⚠️", db: "issue_paf" },
+  { key: "power_stream",    label: "Power & Steam",           icon: "⚡", db: "power_stream" },
+  { key: "jumlah_eqp",      label: "Jumlah Equipment UTL",    icon: "🏭", db: "jumlah_eqp_utl" },
+  { key: "critical_utl",    label: "Critical Eqp UTL",        icon: "🚧", db: "critical_eqp_utl" },
+  { key: "critical_prim",   label: "Critical Prim/Sec",       icon: "🔴", db: "critical_eqp_prim_sec" },
+  { key: "mon_operasi",     label: "Monitoring Operasi",      icon: "📊", db: "monitoring_operasi" },
+  { key: "inspection_plan", label: "Inspection Plan",         icon: "🗂️", db: "inspection_plan" },
+  { key: "tkdn",            label: "TKDN",                    icon: "🇮🇩", db: "tkdn" },
+  { key: "rcps_rek",        label: "RCPS Rekomendasi",        icon: "📝", db: "rcps_rekomendasi" },
+  { key: "rcps",            label: "RCPS",                    icon: "🔍", db: "rcps" },
+  { key: "boc",             label: "BOC",                     icon: "⚖️", db: "boc" },
+  { key: "readiness_jetty", label: "Readiness Jetty",         icon: "⚓", db: "readiness_jetty" },
+  { key: "workplan_jetty",  label: "Workplan Jetty",          icon: "🚢", db: "workplan_jetty" },
+  { key: "readiness_tank",  label: "Readiness Tank",          icon: "🛢️", db: "readiness_tank" },
+  { key: "workplan_tank",   label: "Workplan Tank",           icon: "🗒️", db: "workplan_tank" },
+  { key: "readiness_spm",   label: "Readiness SPM",           icon: "🌊", db: "readiness_spm" },
+  { key: "spm_workplan",    label: "SPM Workplan",            icon: "🔧", db: "spm_workplan" },
+  { key: "irkap_program",   label: "IRKAP Program",           icon: "📋", db: "irkap_program" },
+  { key: "irkap_actual",    label: "IRKAP Actual",            icon: "📊", db: "irkap_actual" },
+  { key: "master_equipment",label: "Master Data Equipment",   icon: "🗂️", db: "master_data_equipment" },
+];
+
+let statsData = {};
+let searchQ = '';
+let filterStatus = 'all';
+
+async function loadStats() {
+  try {
+    const res = await fetch('/table-stats');
+    statsData = await res.json();
+    renderGrid();
+    renderSummary();
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+function renderSummary() {
+  const withData = Object.values(statsData).filter(v => v.rows > 0).length;
+  const total    = TABLE_META.length;
+  const totalRec = Object.values(statsData).reduce((a,v) => a + (v.rows||0), 0);
+  document.getElementById('totalTables').textContent   = total;
+  document.getElementById('tablesWithData').textContent = withData;
+  document.getElementById('tablesEmpty').textContent   = total - withData;
+  document.getElementById('totalRecords').textContent  = totalRec.toLocaleString('id-ID') + ' baris';
+}
+
+function renderGrid() {
+  const grid = document.getElementById('tableGrid');
+  const q = searchQ.toLowerCase();
+
+  const filtered = TABLE_META.filter(t => {
+    const matchQ = !q || t.label.toLowerCase().includes(q) || t.key.toLowerCase().includes(q) || t.db.toLowerCase().includes(q);
+    const st = statsData[t.key];
+    const hasData = st && st.rows > 0;
+    const matchF = filterStatus === 'all' || (filterStatus === 'has_data' && hasData) || (filterStatus === 'no_data' && !hasData);
+    return matchQ && matchF;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><i class="fas fa-inbox"></i><p>Tidak ada tabel yang cocok dengan filter</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(t => {
+    const st = statsData[t.key] || { rows: 0, updated: null };
+    const hasData = st.rows > 0;
+    const recentlyUpdated = st.updated && isRecentlyUpdated(st.updated);
+    return `
+    <div class="card${hasData ? '' : ' no-data'}" data-key="${t.key}">
+      ${recentlyUpdated ? '<div class="badge-new">Baru</div>' : ''}
+      <div class="card-header">
+        <div class="card-icon-wrap">${t.icon}</div>
+        <div class="card-meta">
+          <div class="card-name" title="${t.label}">${t.label}</div>
+          <div class="card-table-name">${t.db}</div>
+        </div>
+      </div>
+      <div class="card-stats">
+        <div class="stat-chip ${hasData ? 'green' : ''}">
+          <i class="fas fa-table-cells" style="font-size:0.65rem"></i>
+          <span class="val">${hasData ? st.rows.toLocaleString('id-ID') : '0'}</span>
+          <span>baris</span>
+        </div>
+      </div>
+      ${st.updated ? `<div class="card-upd"><i class="fas fa-clock" style="font-size:0.65rem;margin-right:3px"></i>${st.updated}</div>` : '<div class="card-upd">Belum pernah di-upload</div>'}
+      <div class="card-actions">
+        <a href="/view/${t.key}" class="btn-view${hasData ? '' : ' disabled'}">
+          <i class="fas fa-eye"></i> Lihat Data
+        </a>
+        <a href="/export?table=${t.key}" target="_blank" class="btn-export${hasData ? '' : ' disabled'}" title="Export Excel">
+          <i class="fas fa-file-excel"></i>
+        </a>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function isRecentlyUpdated(dateStr) {
+  // Check if updated in last 7 days
+  try {
+    const parts = dateStr.split(', ');
+    if (parts.length < 2) return false;
+    const [dayMonth, time] = parts;
+    const d = new Date(dayMonth + ' ' + new Date().getFullYear() + ' ' + time);
+    return (Date.now() - d.getTime()) < 7 * 24 * 3600 * 1000;
+  } catch { return false; }
+}
+
+// Search
+let searchTimer;
+document.getElementById('searchInput').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    searchQ = e.target.value;
+    renderGrid();
+  }, 150);
+});
+
+document.getElementById('filterStatus').addEventListener('change', e => {
+  filterStatus = e.target.value;
+  renderGrid();
+});
+
+loadStats();
+</script>
+</body>
+</html>
