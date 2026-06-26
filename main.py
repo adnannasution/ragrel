@@ -687,13 +687,19 @@ async def chat_ui(request: Request):
 # ─────────────────────────────────────────────────────────────────────────────
 # ROUTER UPLOAD
 # ─────────────────────────────────────────────────────────────────────────────
+UPLOAD_PIN = "128128"
+
 @app.post("/upload-sync")
 async def upload_sync(
     file: UploadFile = File(...),
     data_type: str = Form(...),  # anggaran | pipeline | rotor | atg | metering
     mode: str = Form("replace"),  # replace | append
+    pin: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    if pin != UPLOAD_PIN:
+        return {"error": "PIN salah! Upload dibatalkan."}
+
     file_location = f"temp_{file.filename}"
     with open(file_location, "wb") as f:
         f.write(await file.read())
