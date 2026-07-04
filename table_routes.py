@@ -49,6 +49,8 @@ TABLE_VIEWER_META = {
     "irkap_program":   ("irkap_program",            "IRKAP Program",          "📋"),
     "irkap_actual":    ("irkap_actual",             "IRKAP Actual",           "📊"),
     "master_equipment":("master_data_equipment",   "Master Data Equipment",  "🗂️"),
+    "oa":              ("oa_monitoring",            "OA Monitoring",          "📈"),
+    "plo":             ("plo_monitoring",           "PLO Monitoring",         "📜"),
 }
 
 
