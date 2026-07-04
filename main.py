@@ -1834,7 +1834,7 @@ def sync_boc(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(BOC(
-            ru             = _safe(row.get('RU_Sheet1')),
+            ru             = _safe(row.get('RU') or row.get('RU_Sheet1')),
             area           = _safe(row.get('Area')),
             unit           = _safe(row.get('Unit')),
             equipment      = _safe(row.get('Equipment')),
