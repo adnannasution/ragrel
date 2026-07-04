@@ -1295,6 +1295,8 @@ EXPORT_TABLES = {
     "irkap_program":   ("irkap_program",               "IRKAP Program"),
     "irkap_actual":    ("irkap_actual",                "IRKAP Actual"),
     "master_equipment": ("master_data_equipment",      "Master Data Equipment"),
+    "oa":               ("oa_monitoring",              "OA Monitoring"),
+    "plo":              ("plo_monitoring",             "PLO Monitoring"),
 }
 
 @app.get("/export")
@@ -1333,7 +1335,7 @@ def table_stats(db: Session = Depends(get_db)):
             return 0
         return db.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() or 0
 
-    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan", "irkap_program", "irkap_actual", "master_equipment"]
+    keys = ["anggaran", "pipeline", "rotor", "atg", "metering", "badactor", "icu", "prokja_atg", "paf", "zero_clamp", "issue_paf", "power_stream", "jumlah_eqp", "critical_utl", "critical_prim", "mon_operasi", "inspection_plan", "tkdn", "rcps_rek", "rcps", "boc", "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank", "readiness_spm", "spm_workplan", "irkap_program", "irkap_actual", "master_equipment", "oa", "plo"]
     tables = {
         "anggaran": "anggaran_maintenance",
         "pipeline": "pipeline_inspection",
@@ -1365,6 +1367,8 @@ def table_stats(db: Session = Depends(get_db)):
         "irkap_program":   "irkap_program",
         "irkap_actual":    "irkap_actual",
         "master_equipment": "master_data_equipment",
+        "oa":               "oa_monitoring",
+        "plo":              "plo_monitoring",
     }
     return {
         k: {
