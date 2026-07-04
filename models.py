@@ -657,7 +657,30 @@ class IrkapActual(Base):
     status_step                  = Column(Text)
     status_prognosa              = Column(Text)
 
-# ─── 29. MASTER DATA EQUIPMENT (IH08) ────────────────────────────────────────
+# ─── 29. OPERATIONAL AVAILABILITY (OA) ──────────────────────────────────────
+class OAMonitoring(Base):
+    __tablename__ = "oa_monitoring"
+    id            = Column(Integer, primary_key=True, index=True)
+    refinery_unit = Column(Text)
+    actual_target = Column(Text)   # Actual / Target
+    value_perc    = Column(Float)  # 0.0 – 1.0
+    month_update  = Column(Text)
+    color         = Column(Text)
+
+# ─── 30. PLO (Perizinan Lingkungan Operasi) ───────────────────────────────────
+class PLOMonitoring(Base):
+    __tablename__ = "plo_monitoring"
+    id                              = Column(Integer, primary_key=True, index=True)
+    refinery_unit                   = Column(Text)
+    nomor_ijin                      = Column(Text)
+    nama_plo                        = Column(Text)
+    cakupan_unit_plant_kapasitas    = Column(Text)
+    date_expired                    = Column(Text)
+    sum_of_days_expired             = Column(Float)
+    status_plo                      = Column(Text)
+    remarks                         = Column(Text)
+
+# ─── 31. MASTER DATA EQUIPMENT (IH08) ────────────────────────────────────────
 class MasterDataEquipment(Base):
     __tablename__ = "master_data_equipment"
     id                          = Column(Integer, primary_key=True, index=True)

@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from database import engine, get_db, DATABASE_URL
-from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan, IrkapProgram, IrkapActual, MasterDataEquipment
+from models import Base, AnggaranMaintenance, PipelineInspection, RotorMonitoring, ATGMonitoring, MeteringMonitoring, BadActorMonitoring, ICUMonitoring, ProgramKerjaATG, PAF, ZeroClamp, IssuePAF, PowerStream, JumlahEqpUTL, CriticalEqpUTL, CriticalEqpPrimSec, MonitoringOperasi, InspectionPlan, TKDN, RCPSRekomendasi, RCPS, BOC, ReadinessJetty, WorkplanJetty, ReadinessTank, WorkplanTank, ReadinessSPM, SPMWorkplan, IrkapProgram, IrkapActual, MasterDataEquipment, OAMonitoring, PLOMonitoring
 from langchain_openai import ChatOpenAI
 from langchain_community.utilities import SQLDatabase
 from langchain_experimental.sql import SQLDatabaseChain
@@ -186,7 +186,7 @@ ATURAN QUERY SQL:
 - Jika pertanyaan melibatkan lebih dari satu tabel, gunakan JOIN yang sesuai.
 - PENTING: Jangan pernah query SELECT * tanpa LIMIT. Selalu gunakan agregasi, filter, atau LIMIT 20.
 - Jika pertanyaan meminta "tampilkan semua" data ribuan baris, buat RINGKASAN/AGREGASI saja lalu tawarkan download dengan format: [DOWNLOAD:key_tabel] — contoh: [DOWNLOAD:pipeline] atau [DOWNLOAD:atg]. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan.
-- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan, irkap_program, irkap_actual, master_equipment.
+- ATURAN DOWNLOAD OTOMATIS: Jika hasil query mengandung lebih dari 10 baris data, WAJIB sisipkan tag [DOWNLOAD:key_tabel] yang relevan di akhir jawaban — meskipun user tidak memintanya. Ini membantu user mengunduh data lengkap jika ingin melihat detail lebih lanjut. Key yang tersedia: anggaran, pipeline, rotor, atg, metering, badactor, icu, prokja_atg, paf, zero_clamp, issue_paf, power_stream, jumlah_eqp, critical_utl, critical_prim, mon_operasi, inspection_plan, irkap_program, irkap_actual, master_equipment, oa, plo.
 - DETEKSI PERTANYAAN TIDAK PRODUKTIF: Jika user meminta salah satu dari berikut, JANGAN query — langsung tolak dengan sopan dan arahkan ke pertanyaan analisis yang lebih tepat:
   * "tampilkan semua", "list semua", "show all", "lihat semua", "ceritakan semua"
   * "tampilkan seluruh isi tabel", "dump data", "export semua"
@@ -223,6 +223,8 @@ PENGECUALIAN — tetap jawab dengan ramah untuk:
 - Untuk irkap_program: daftar program kerja IRKAP 2024. KOLOM YANG TERSEDIA (gunakan HANYA nama kolom ini, jangan tambah kolom lain): refinery_unit, disiplin, kategori_rkap, material_jasa, highlevel_planning_note, referensi_prokja_sebelumnya, no_program_kerja, equipment_tag_no, type_equipment, detail_type_equipment, program_kerja, step_plan_today, detail_step_plan_today, step_actual_today, detail_step_actual_today, status_step, start_plan, finish_plan, status_prognosa, kelompok_biaya, nilai_anggaran_idr, nilai_anggaran_usd, top_risk, asset_integrity. TIDAK ADA kolom month_update, bulan, tahun, atau year di tabel ini — jangan generate kolom tersebut. Untuk filter tahun gunakan YEAR(start_plan) atau STRFTIME(\'%Y\', start_plan). Tampilkan nilai_anggaran_idr dengan format Rp.
 - Untuk irkap_actual: realisasi step pelaksanaan IRKAP. KOLOM YANG TERSEDIA (gunakan HANYA nama kolom ini): no, no_program, kategori_rkap, program_asset_integrity, refinery_unit, area, unit_process, tag_no, dasar_pengusulan, rekomendasi, program_kerja, disiplin, kategory_trigger, kelompok_sasaran_rk, kel_biaya, note, release_type, jadwal_pelaksanaan, jadwal_cost, jadwal_cash, strategy_penyelesaian, failure_impact, high_level_planning_note, referensi_prokja_sebelumnya, cost_center, cost_element, wbs_number, anggaran_idr, anggaran_usd, anggaran_equivalent_idr, probability_class, probability_likelyhood, economic_usd, health_safety, environment, ram_criticality, material_jasa, sumber_harga, actual_start1, actual_finish1, comp1, notif_no, actual_start2, actual_finish2, comp2, actual_start3, actual_finish3, comp3, wo_no, actual_start4, actual_finish4, comp4, ro_no, actual_start5, actual_finish5, comp5, actual_start6, actual_finish6, comp6, pr, actual_start7, actual_finish7, comp7, rfq, actual_start8, actual_finish8, comp8, po, actual_start9, actual_finish9, comp9, gr_no, actual_start10, actual_finish10, comp10, gi_no, actual_start11, actual_finish11, comp11, actual_start12, actual_finish12, comp12, actual_start13, actual_finish13, comp13, sa_no, actual_start14, actual_finish14, comp14, actual_start15, actual_finish15, comp15, current_step, status_step, status_prognosa. TIDAK ADA kolom month_update, bulan, tahun di tabel ini. Gunakan status_prognosa ('On Fiscal Year', 'Next Year', 'Closed') dan current_step untuk analisis progres.
 - Untuk master_data_equipment: master data equipment dari SAP IH08 — berisi semua equipment yang terdaftar di sistem. KOLOM YANG TERSEDIA: criticality (A/B/C/Z — tingkat kritikal equipment), equipment (nomor equipment SAP), functional_location, maintenance_plant, location (kode RU/lokasi), cost_center, wbs_element, main_work_center, planner_group, planning_plant, catalog_profile, equipment_category, description (deskripsi teknis equipment), manufacturer, model_type, serial_number, changed_by, changed_on, created_by, created_on, technical_obj_type, manufact_serial_number, manufacturer_drawing_number, manufacturer_part_number, material, material_description, order_no, size_dimension, sort_field_ata. Contoh query: jumlah equipment per criticality, list equipment berdasarkan functional_location, cari equipment by description atau manufacturer. Untuk filter criticality gunakan: WHERE criticality = 'A'. Untuk download massal gunakan [DOWNLOAD:master_equipment].
+- Untuk oa_monitoring: Operational Availability (OA) per refinery unit — KOLOM YANG TERSEDIA: refinery_unit, actual_target ('Actual' atau 'Target'), value_perc (nilai OA dalam desimal 0.0–1.0, kalikan 100 untuk persen), month_update (tanggal update format YYYY-MM-DD), color. Untuk menampilkan nilai OA gunakan: ROUND(value_perc * 100, 2) || '%'. Filter bulan: WHERE month_update ILIKE '%2026-06%'. Tampilkan perbandingan Actual vs Target per RU.
+- Untuk plo_monitoring: data Perizinan Lingkungan Operasi (PLO) — KOLOM YANG TERSEDIA: refinery_unit, nomor_ijin, nama_plo (nama/deskripsi izin), cakupan_unit_plant_kapasitas, date_expired (tanggal kedaluwarsa ijin), sum_of_days_expired (jumlah hari expired — negatif berarti belum expired), status_plo ('Not Expired' / 'Expired' / dst), remarks. Contoh query: berapa PLO yang expired, daftar PLO per RU, PLO yang akan segera expired. Untuk download massal gunakan [DOWNLOAD:plo].
 
 {prisma_schema}
 
@@ -237,7 +239,7 @@ ATURAN KLARIFIKASI — WAJIB DIIKUTI:
   Zero Clamp, Power Stream, Anggaran, TKDN, RCPS, BOC, Readiness Jetty, Readiness Tank,
   Readiness SPM, Workplan Jetty, Workplan Tank, SPM Workplan, Inspection Plan,
   Monitoring Operasi, IRKAP, IRKAP Program, IRKAP Actual, Master Data Equipment, Equipment Master,
-  master data, reservasi, PR, PO, material TA (PRISMA).
+  master data, reservasi, PR, PO, material TA (PRISMA), OA, Operational Availability, PLO, Perizinan.
 - DISAMBIGUASI kata "equipment": 
   Jika user menyebut "equipment" BERSAMAAN dengan nama tabel lain (ICU, Pipeline, Bad Actor, dll)
   → gunakan tabel tersebut, bukan master_data_equipment.
@@ -483,6 +485,7 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
         # ✅ Fix 1: Tambahan kata kunci bahasa Indonesia & kata follow-up
         "inspeksi", "realisasi", "bandingkan", "dibanding", "dibandingkan",
         "program kerja", "rencana inspeksi", "anggaran maintenance",
+        "oa", "operational availability", "plo", "perizinan",
     ]
     _SAPAAN_KEYWORDS = [
         "halo", "hai", "hello", "hi ", "selamat pagi", "selamat siang",
@@ -513,7 +516,8 @@ async def run_with_memory(question: str, session_id: str, loop) -> str:
                 f"Pipeline, ATG, Metering, Rotor, ICU, Bad Actor, PAF, Zero Clamp, Power Stream, "
                 f"Anggaran, TKDN, RCPS, BOC, Readiness Jetty, Readiness Tank, Readiness SPM, "
                 f"Workplan Jetty, Workplan Tank, SPM Workplan, Inspection Plan, Monitoring Operasi, "
-                f"IRKAP, IRKAP Program, IRKAP Actual, Master Data Equipment, master data, reservasi, PR, PO, material TA, turnaround\n"
+                f"IRKAP, IRKAP Program, IRKAP Actual, Master Data Equipment, master data, reservasi, PR, PO, material TA, turnaround, "
+                f"OA, Operational Availability, PLO, Perizinan\n"
                 f"3. AMBIGU — jika tidak menyebut nama tabel spesifik apapun\n"
                 f"CATATAN: Kata 'ru', 'refinery unit', 'kilang', 'equipment', 'laporan', 'data', "
                 f"'status', 'berapa', 'jumlah', 'tampilkan' BUKAN nama tabel — jika hanya menyebut "
@@ -735,6 +739,8 @@ async def upload_sync(
             "irkap_program":   sync_irkap_program,
             "irkap_actual":    sync_irkap_actual,
             "master_equipment": sync_master_data_equipment,
+            "oa":              sync_oa,
+            "plo":             sync_plo,
         }
         APPEND_SUPPORTED = {
             "readiness_jetty", "workplan_jetty",
@@ -2267,3 +2273,58 @@ def sync_master_data_equipment(file_location: str, db: Session, mode: str = "rep
     count = len(df)
     action = "ditambahkan" if mode == "append" else "diupdate"
     return {"message": f"✅ Master Data Equipment berhasil {action}! ({count} records)"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSER: OA (OPERATIONAL AVAILABILITY)
+# ─────────────────────────────────────────────────────────────────────────────
+def sync_oa(file_location: str, db: Session):
+    df = pd.read_excel(file_location, sheet_name="Operational Availability", header=0)
+    df = _auto_convert_dates(df)
+    df = _dedup_columns(df)
+    db.query(OAMonitoring).delete()
+    count = 0
+    for _, row in df.iterrows():
+        val = row.get('Value Perc')
+        try:
+            val = float(val) if pd.notna(val) else None
+        except Exception:
+            val = None
+        db.add(OAMonitoring(
+            refinery_unit = _safe(row.get('Refinery Unit')),
+            actual_target = _safe(row.get('Actual/Target')),
+            value_perc    = val,
+            month_update  = _safe(row.get('Month Update')),
+            color         = _safe(row.get('Color')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ OA Monitoring berhasil diupdate! ({count} records)"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARSER: PLO (PERIZINAN LINGKUNGAN OPERASI)
+# ─────────────────────────────────────────────────────────────────────────────
+def sync_plo(file_location: str, db: Session):
+    # Header sebenarnya ada di baris ke-3 (index 2, skip 2 baris pertama)
+    df = pd.read_excel(file_location, sheet_name=0, header=2)
+    df = _dedup_columns(df)
+    db.query(PLOMonitoring).delete()
+    count = 0
+    for _, row in df.iterrows():
+        days = row.get('Sum of Days Expired')
+        try:
+            days = float(days) if pd.notna(days) else None
+        except Exception:
+            days = None
+        db.add(PLOMonitoring(
+            refinery_unit                = _safe(row.get('RefineryUnit')),
+            nomor_ijin                   = _safe(row.get('NomorIjin')),
+            nama_plo                     = _safe(row.get('NamaPLO')),
+            cakupan_unit_plant_kapasitas = _safe(row.get('CakupanUnitPlantKapasitasTertera')),
+            date_expired                 = _safe(row.get('DateExpired')),
+            sum_of_days_expired          = days,
+            status_plo                   = _safe(row.get('StatusPLO')),
+            remarks                      = _safe(row.get('Remarks')),
+        ))
+        count += 1
+    db.commit()
+    return {"message": f"✅ PLO Monitoring berhasil diupdate! ({count} records)"}
