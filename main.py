@@ -1752,7 +1752,7 @@ def sync_power_stream(file_location: str, db: Session):
             remark           = _safe(row.get('Remark')),
             date_update      = _safe(row.get('Date Update')),
             month_update     = _safe(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode          = to_periode(row.get('Date Update')),
             code_current     = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1857,7 +1857,7 @@ def sync_mon_operasi(file_location: str, db: Session):
             limitasi_alert_sts     = _safe(row.get('Limitasi/Alert STS')),
             mitigasi_sts           = _safe(row.get('Mitigasi_STS')),
             month_update           = _safe(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode                = to_periode(row.get('Update')),
             code_current           = _to_int(row.get('Code Current')),
         ))
         count += 1
