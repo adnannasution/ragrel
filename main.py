@@ -1664,7 +1664,7 @@ def sync_paf(file_location: str, db: Session):
         g = lambda c: _safe(row.get(c)) if row.get(c) is not None and pd.notna(row.get(c)) else ''
         db.add(PAF(
             month_update     = _safe(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode          = to_periode(row.get('Month') or row.get('Month Update')),
             type             = _safe(row.get('Type')),
             ru               = normalize_ru(_safe(row.get('RU'))),
             target_realisasi = _safe(row.get('Target/Realisasi')),
