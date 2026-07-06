@@ -158,7 +158,7 @@ _PERIODE_COL_MIGRATIONS = [
     "atg_monitoring", "bad_actor_monitoring", "icu_monitoring",
     "metering_monitoring", "program_kerja_atg", "paf", "issue_paf",
     "power_stream", "jumlah_eqp_utl", "critical_eqp_utl",
-    "critical_eqp_prim_sec", "monitoring_operasi", "tkdn",
+    "critical_eqp_prim_sec", "monitoring_operasi", "tkdn", "boc",
     "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank",
     "readiness_spm", "spm_workplan", "irkap_program", "oa_monitoring",
 ]
@@ -195,6 +195,8 @@ def startup():
         for tbl in _PERIODE_COL_MIGRATIONS:
             if tbl in existing and 'periode' not in existing[tbl]:
                 conn.execute(_text(f'ALTER TABLE "{tbl}" ADD COLUMN "periode" TEXT'))
+        if 'boc' in existing and 'remark' not in existing['boc']:
+            conn.execute(_text('ALTER TABLE "boc" ADD COLUMN "remark" TEXT'))
         conn.commit()
     _build_db_schema_cols()  # scan kolom kategorikal otomatis
  
@@ -1994,6 +1996,8 @@ def sync_boc(file_location: str, db: Session):
             mttr           = _to_float(row.get('MTTR')),
             mtbf           = _to_float(row.get('MTBF')),
             hasil          = _safe(row.get('hasil')),
+            remark         = _safe(row.get('Remark')),
+            periode        = to_periode(row.get('periode') or row.get('Periode')),
         ))
         count += 1
     db.commit()
