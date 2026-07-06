@@ -12,6 +12,7 @@ class AnggaranMaintenance(Base):
     kategori  = Column(Text)
     tipe      = Column(Text)
     nilai_usd = Column(Numeric(18, 2))
+    periode   = Column(Text)
 
 # ─── 2. PIPELINE INSPECTION ──────────────────────────────────────────────────
 class PipelineInspection(Base):
@@ -34,6 +35,7 @@ class PipelineInspection(Base):
     remarks                 = Column(Text)
     bulan                   = Column(Text)
     tahun                   = Column(Integer)
+    periode                 = Column(Text)
 
 # ─── 3. ROTOR MONITORING ─────────────────────────────────────────────────────
 class RotorMonitoring(Base):
@@ -55,6 +57,7 @@ class RotorMonitoring(Base):
     finish_date_eksekusi   = Column(Text)
     readiness_rotor        = Column(Integer)
     last_update            = Column(Text)
+    periode                = Column(Text)
 
 # ─── 4. ATG MONITORING ───────────────────────────────────────────────────────
 class ATGMonitoring(Base):
@@ -76,6 +79,7 @@ class ATGMonitoring(Base):
     no_irkap                = Column(Text)
     status_rtl              = Column(Text)
     month_update            = Column(Date)
+    periode                 = Column(Text)
 
 # ─── 5a. BAD ACTOR MONITORING ────────────────────────────────────────────────
 class BadActorMonitoring(Base):
@@ -95,6 +99,7 @@ class BadActorMonitoring(Base):
     external_resource     = Column(Text)
     no_irkap              = Column(Text)
     action_plan_remark    = Column(Text)
+    periode              = Column(Text)
 
 # ─── 5b. ICU (INTEGRITY CONCERN UNIT) ────────────────────────────────────────
 class ICUMonitoring(Base):
@@ -119,6 +124,7 @@ class ICUMonitoring(Base):
     progress             = Column(Text)
     info                 = Column(Text)
     target_closed        = Column(Text)
+    periode              = Column(Text)
 
 # ─── 6. METERING MONITORING ──────────────────────────────────────────────────
 class MeteringMonitoring(Base):
@@ -137,6 +143,7 @@ class MeteringMonitoring(Base):
     no_irkap              = Column(Text)
     status_rtl            = Column(Text)
     month_update          = Column(Date)
+    periode               = Column(Text)
 
 # ─── 7. PROGRAM KERJA ATG ────────────────────────────────────────────────────
 class ProgramKerjaATG(Base):
@@ -152,6 +159,7 @@ class ProgramKerjaATG(Base):
     no_irkap             = Column(Text)
     target               = Column(Text)
     month_update         = Column(Date)
+    periode              = Column(Text)
 
 # ─── 8. PAF (Plant Availability Factor) ──────────────────────────────────────
 class PAF(Base):
@@ -170,6 +178,7 @@ class PAF(Base):
     ru2              = Column(Text)
     target           = Column(Float)
     code_current     = Column(Integer)
+    periode          = Column(Text)
 
 # ─── 9. ZERO CLAMP MONITORING ────────────────────────────────────────────────
 class ZeroClamp(Base):
@@ -203,6 +212,7 @@ class IssuePAF(Base):
     issue        = Column(Text)
     month_update = Column(Text)
     code_current = Column(Integer)
+    periode      = Column(Text)
 
 # ─── 11. POWER & STEAM ───────────────────────────────────────────────────────
 class PowerStream(Base):
@@ -221,6 +231,7 @@ class PowerStream(Base):
     date_update      = Column(Text)
     month_update     = Column(Text)
     code_current     = Column(Integer)
+    periode          = Column(Text)
 
 # ─── 12. JUMLAH EQUIPMENT UTL ────────────────────────────────────────────────
 class JumlahEqpUTL(Base):
@@ -232,6 +243,7 @@ class JumlahEqpUTL(Base):
     jumlah           = Column(Integer)
     month_update     = Column(Text)
     code_current     = Column(Integer)
+    periode          = Column(Text)
 
 # ─── 13. CRITICAL EQUIPMENT UTL ──────────────────────────────────────────────
 class CriticalEqpUTL(Base):
@@ -248,6 +260,7 @@ class CriticalEqpUTL(Base):
     traffic_mitigasi       = Column(Text)
     month_update           = Column(Text)
     code_current           = Column(Integer)
+    periode                = Column(Text)
 
 # ─── 14. CRITICAL EQUIPMENT PRIMARY & SECONDARY ───────────────────────────────
 class CriticalEqpPrimSec(Base):
@@ -265,6 +278,7 @@ class CriticalEqpPrimSec(Base):
     traffic_mitigasi  = Column(Text)
     month_update      = Column(Text)
     code_current      = Column(Integer)
+    periode           = Column(Text)
 
 # ─── 15. MONITORING OPERASI ──────────────────────────────────────────────────
 class MonitoringOperasi(Base):
@@ -290,6 +304,7 @@ class MonitoringOperasi(Base):
     mitigasi_sts           = Column(Text)
     month_update           = Column(Text)
     code_current           = Column(Integer)
+    periode                = Column(Text)
 
 # ─── 16. INSPECTION PLAN ─────────────────────────────────────────────────────
 class InspectionPlan(Base):
@@ -326,6 +341,7 @@ class TKDN(Base):
     kdn           = Column(Numeric(18, 2))
     persentase    = Column(Float)
     tahun         = Column(Integer)
+    periode       = Column(Text)
 
 # ─── 18. RCPS REKOMENDASI ─────────────────────────────────────────────────────
 class RCPSRekomendasi(Base):
@@ -407,6 +423,7 @@ class ReadinessJetty(Base):
     status_fire_protection   = Column(Text)
     remark_fire_protection   = Column(Text)
     month_update             = Column(Text)
+    periode                  = Column(Text)
 
 # ─── 22. WORKPLAN JETTY ──────────────────────────────────────────────────────
 class WorkplanJetty(Base):
@@ -428,6 +445,7 @@ class WorkplanJetty(Base):
     keterangan           = Column(Text)
     status_rtl           = Column(Text)
     month_update         = Column(Text)
+    periode              = Column(Text)
 
 # ─── 23. READINESS TANK ──────────────────────────────────────────────────────
 class ReadinessTank(Base):
@@ -460,6 +478,7 @@ class ReadinessTank(Base):
     status_cathodic           = Column(Text)
     remark_cathodic           = Column(Text)
     month_update              = Column(Text)
+    periode                   = Column(Text)
 
 # ─── 24. WORKPLAN TANK ───────────────────────────────────────────────────────
 class WorkplanTank(Base):
@@ -478,6 +497,7 @@ class WorkplanTank(Base):
     keterangan           = Column(Text)
     status_rtl           = Column(Text)
     month_update         = Column(Text)
+    periode              = Column(Text)
 
 # ─── 25. READINESS SPM ───────────────────────────────────────────────────────
 class ReadinessSPM(Base):
@@ -506,6 +526,7 @@ class ReadinessSPM(Base):
     status_cathodic_spl       = Column(Text)
     status_cathodic_spm       = Column(Text)
     month_update              = Column(Text)
+    periode                   = Column(Text)
 
 # ─── 26. SPM WORKPLAN ────────────────────────────────────────────────────────
 class SPMWorkplan(Base):
@@ -526,6 +547,7 @@ class SPMWorkplan(Base):
     keterangan           = Column(Text)
     status_rtl           = Column(Text)
     month_update         = Column(Text)
+    periode              = Column(Text)
 # ─── 27. IRKAP PROGRAM KERJA ─────────────────────────────────────────────────
 class IrkapProgram(Base):
     __tablename__ = "irkap_program"
@@ -554,6 +576,7 @@ class IrkapProgram(Base):
     nilai_anggaran_usd          = Column(Numeric(18, 2))
     top_risk                    = Column(Text)
     asset_integrity             = Column(Text)
+    periode                     = Column(Text)
 
 # ─── 28. IRKAP ACTUAL STEP ───────────────────────────────────────────────────
 class IrkapActual(Base):
@@ -681,6 +704,7 @@ class OAMonitoring(Base):
     value_perc    = Column(Float)  # 0.0 – 1.0
     month_update  = Column(Text)
     color         = Column(Text)
+    periode       = Column(Text)
 
 # ─── 30. PLO (Perizinan Lingkungan Operasi) ───────────────────────────────────
 class PLOMonitoring(Base):

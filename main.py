@@ -153,6 +153,16 @@ app.include_router(table_router)
 
 templates = Jinja2Templates(directory="templates")
 
+_PERIODE_COL_MIGRATIONS = [
+    "anggaran_maintenance", "pipeline_inspection", "rotor_monitoring",
+    "atg_monitoring", "bad_actor_monitoring", "icu_monitoring",
+    "metering_monitoring", "program_kerja_atg", "paf", "issue_paf",
+    "power_stream", "jumlah_eqp_utl", "critical_eqp_utl",
+    "critical_eqp_prim_sec", "monitoring_operasi", "tkdn",
+    "readiness_jetty", "workplan_jetty", "readiness_tank", "workplan_tank",
+    "readiness_spm", "spm_workplan", "irkap_program", "oa_monitoring",
+]
+
 _EQUIPMENT_COL_MIGRATIONS = [
     ("pipeline_inspection",  "equipment"),
     ("atg_monitoring",       "equipment_tangki"),
@@ -182,6 +192,9 @@ def startup():
         for tbl, col in _EQUIPMENT_COL_MIGRATIONS:
             if tbl in existing and col not in existing[tbl]:
                 conn.execute(_text(f'ALTER TABLE "{tbl}" ADD COLUMN "{col}" TEXT'))
+        for tbl in _PERIODE_COL_MIGRATIONS:
+            if tbl in existing and 'periode' not in existing[tbl]:
+                conn.execute(_text(f'ALTER TABLE "{tbl}" ADD COLUMN "periode" TEXT'))
         conn.commit()
     _build_db_schema_cols()  # scan kolom kategorikal otomatis
  
@@ -835,7 +848,7 @@ def sync_anggaran(file_location: str, db: Session):
                 except:
                     val = None
                 db.add(AnggaranMaintenance(
-                    ru=ru_name, tahun=year,
+                    ru=ru_name, tahun=year, periode=to_periode(tahun=year),
                     kategori=kategori, tipe=tipe, nilai_usd=val
                 ))
                 count += 1
@@ -870,6 +883,7 @@ def sync_pipeline(file_location: str, db: Session):
             remarks                 = str(row.get('Remarks', '') or '') + (f" [Temporary Repair: {row.get('JumlahTemporary Repair')}]" if pd.notna(row.get('JumlahTemporary Repair')) and not str(row.get('JumlahTemporary Repair')).strip().lstrip('-').isdigit() else ''),
             bulan                   = str(row.get('Bulan', '') or ''),
             tahun                   = int(row['Tahun']) if pd.notna(row.get('Tahun')) else None,
+            periode                 = to_periode(bulan=row.get('Bulan'), tahun=row.get('Tahun')),
         ))
         count += 1
     db.commit()
@@ -889,6 +903,7 @@ def sync_rotor(file_location: str, db: Session):
             no                     = int(row['No']) if pd.notna(row.get('No')) else None,
             refinery_unit          = normalize_ru(str(row.get('Refinery Unit', '') or '')),
             bulan                  = str(row.get('Bulan', '') or ''),
+            periode                = to_periode(bulan=row.get('Bulan')),
             rotor                  = str(row.get('Rotor', '') or ''),
             program                = str(row.get('Program', '') or ''),
             brand                  = str(row.get('Brand', '') or ''),
@@ -934,6 +949,7 @@ def sync_atg(file_location: str, db: Session):
             no_irkap                = str(row.get('NO.IRKAP', '') or ''),
             status_rtl              = str(row.get('Status RTL', '') or ''),
             month_update            = str(row.get('Month Update', '') or ''),
+            periode                 = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -963,6 +979,7 @@ def sync_metering(file_location: str, db: Session):
             no_irkap              = str(row.get('NO.IRKAP', '') or ''),
             status_rtl            = str(row.get('Status RTL', '') or ''),
             month_update          = str(row.get('Month Update', '') or ''),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -996,7 +1013,7 @@ def sync_badactor(file_location: str, db: Session):
             category_action_plan = str(row.get('Column1', '') or ''),
             progress             = str(row.get('Progress', '') or ''),
             target_date          = target_date_str,
-            periode              = periode_str,
+            periode              = to_periode(periode),
             action_plan_category = str(row.get('Action Plan Category', '') or ''),
             external_resource    = str(row.get('Action Plan Need \nExternal Resource?', '') or ''),
             no_irkap             = no_irkap,
@@ -1151,6 +1168,40 @@ def _try_parse_date(val) -> str | None:
             pass
     return None
 
+def to_periode(val=None, bulan=None, tahun=None) -> str | None:
+    """
+    Konversi berbagai format ke 'YYYY-MM-01' (awal bulan) untuk kolom periode.
+
+    Pemakaian:
+      to_periode('W-III Juli 2025')          → '2025-07-01'
+      to_periode('2024-12-15')               → '2024-12-01'
+      to_periode(bulan='Januari', tahun=2024) → '2024-01-01'
+      to_periode(tahun=2024)                  → '2024-01-01'
+    """
+    # Dari bulan + tahun terpisah
+    if bulan is not None or tahun is not None:
+        b = _BULAN_ID.get(str(bulan or '').lower(), '01')
+        t = str(int(tahun)) if tahun else None
+        if t:
+            return f"{t}-{b}-01"
+        return None
+
+    if val is None:
+        return None
+    import pandas as _pd
+    try:
+        if _pd.isna(val):
+            return None
+    except Exception:
+        pass
+    if hasattr(val, 'strftime'):
+        return val.strftime('%Y-%m-01')
+
+    parsed = _try_parse_date(val)
+    if parsed:
+        return parsed[:7] + '-01'
+    return None
+
 def _auto_convert_dates(df) -> object:
     """
     Scan semua kolom DataFrame — kalau > 70% isinya bisa di-parse sebagai tanggal,
@@ -1269,6 +1320,7 @@ def sync_icu(file_location: str, db: Session):
 
         db.add(ICUMonitoring(
             report_date         = report_date,
+            periode             = to_periode(report_date),
             ru                  = g('ru'),
             icu_status          = g('icu_status'),
             tag_no              = g('tag_no'),
@@ -1327,6 +1379,7 @@ def sync_prokja_atg(file_location: str, db: Session):
             no_irkap             = g("NO.IRKAP"),
             target               = g("Target"),
             month_update         = month_update,
+            periode              = to_periode(month_update),
         ))
         count += 1
     db.commit()
@@ -1611,6 +1664,7 @@ def sync_paf(file_location: str, db: Session):
         g = lambda c: _safe(row.get(c)) if row.get(c) is not None and pd.notna(row.get(c)) else ''
         db.add(PAF(
             month_update     = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             type             = _safe(row.get('Type')),
             ru               = normalize_ru(_safe(row.get('RU'))),
             target_realisasi = _safe(row.get('Target/Realisasi')),
@@ -1671,6 +1725,7 @@ def sync_issue_paf(file_location: str, db: Session):
             date         = _to_date_str(row.get('Date')),
             issue        = _safe(row.get('Issue')),
             month_update = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             code_current = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1697,6 +1752,7 @@ def sync_power_stream(file_location: str, db: Session):
             remark           = _safe(row.get('Remark')),
             date_update      = _safe(row.get('Date Update')),
             month_update     = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             code_current     = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1716,6 +1772,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
             status_equipment = _safe(row.get('Status Equipment')),
             jumlah           = _to_int(row.get('Jumlah')),
             month_update     = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             code_current     = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1740,6 +1797,7 @@ def sync_critical_utl(file_location: str, db: Session):
             target_mitigasi    = _safe(row.get('Target.1')),
             traffic_mitigasi   = _safe(row.get('Traffic.1')),
             month_update       = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             code_current       = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1765,6 +1823,7 @@ def sync_critical_prim(file_location: str, db: Session):
             target_mitigasi    = _safe(row.get('Target.1')),
             traffic_mitigasi   = _safe(row.get('Traffic.1')),
             month_update       = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             code_current       = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1798,6 +1857,7 @@ def sync_mon_operasi(file_location: str, db: Session):
             limitasi_alert_sts     = _safe(row.get('Limitasi/Alert STS')),
             mitigasi_sts           = _safe(row.get('Mitigasi_STS')),
             month_update           = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             code_current           = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1851,6 +1911,7 @@ def sync_tkdn(file_location: str, db: Session):
             kdn           = _to_float(row.get('KDN')),
             persentase    = _to_float(row.get('PERSENTASE')),
             tahun         = _to_int(row.get('TAHUN')),
+            periode       = to_periode(bulan=row.get('BULAN'), tahun=row.get('TAHUN')),
         ))
         count += 1
     db.commit()
@@ -1966,6 +2027,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
             status_fire_protection = _safe(row.get('Status Fire protection/ fire hydrant')),
             remark_fire_protection = _safe(row.get('Remark Fire protection/ fire hydrant')),
             month_update           = _to_date_str(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -1997,6 +2059,7 @@ def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
             keterangan           = _safe(row.get('Keterangan')),
             status_rtl           = _safe(row.get('Status RTL')),
             month_update         = _to_date_str(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2039,6 +2102,7 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
             status_cathodic           = _safe(row.get('Status Cathodic Protection')),
             remark_cathodic           = _safe(row.get('Remark Cathodic Protection')),
             month_update              = _to_date_str(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2067,6 +2131,7 @@ def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
             keterangan           = _safe(row.get('Keterangan')),
             status_rtl           = _safe(row.get('Status RTL')),
             month_update         = _to_date_str(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2105,6 +2170,7 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
             status_cathodic_spl   = _safe(row.get('Status Cathodic Protection (SPL)')),
             status_cathodic_spm   = _safe(row.get('Status Cathodic Protection (SPM)')),
             month_update          = _to_date_str(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2135,6 +2201,7 @@ def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
             keterangan           = _safe(row.get('Keterangan')),
             status_rtl           = _safe(row.get('Status RTL')),
             month_update         = _to_date_str(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2173,6 +2240,7 @@ def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
             nilai_anggaran_usd          = _safe_num(row.get('Nilai Anggaran Plan (USD)')),
             top_risk                    = _safe(row.get('Top Risk')),
             asset_integrity             = _safe(row.get('Asset Integrity')),
+            periode                     = to_periode(row.get('Start Plan (Overall Project)')),
         ))
         count += 1
     db.commit()
@@ -2386,6 +2454,7 @@ def sync_oa(file_location: str, db: Session):
             actual_target = _safe(row.get('Actual/Target')),
             value_perc    = val,
             month_update  = _safe(row.get('Month Update')),
+            periode               = to_periode(row.get('Month Update')),
             color         = _safe(row.get('Color')),
         ))
         count += 1
