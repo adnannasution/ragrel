@@ -1777,7 +1777,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
             status_equipment = _safe(row.get('Status Equipment')),
             jumlah           = _to_int(row.get('Jumlah')),
             month_update     = _safe(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode          = to_periode(row.get('Update') or row.get('Month Update')),
             code_current     = _to_int(row.get('Code Current')),
         ))
         count += 1
