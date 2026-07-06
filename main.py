@@ -153,9 +153,36 @@ app.include_router(table_router)
 
 templates = Jinja2Templates(directory="templates")
 
+_EQUIPMENT_COL_MIGRATIONS = [
+    ("pipeline_inspection",  "equipment"),
+    ("atg_monitoring",       "equipment_tangki"),
+    ("atg_monitoring",       "equipment_atg"),
+    ("bad_actor_monitoring", "equipment"),
+    ("icu_monitoring",       "equipment"),
+    ("metering_monitoring",  "equipment"),
+    ("zero_clamp",           "equipment"),
+    ("inspection_plan",      "equipment"),
+    ("readiness_jetty",      "equipment"),
+    ("workplan_jetty",       "equipment"),
+    ("readiness_tank",       "equipment"),
+    ("workplan_tank",        "equipment"),
+    ("readiness_spm",        "equipment"),
+    ("spm_workplan",         "equipment"),
+    ("irkap_actual",         "equipment"),
+]
+
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    # Tambah kolom equipment ke tabel yang belum punya (idempotent)
+    with engine.connect() as conn:
+        from sqlalchemy import inspect as _inspect, text as _text
+        existing = {t: [c["name"] for c in _inspect(engine).get_columns(t)]
+                    for t in _inspect(engine).get_table_names()}
+        for tbl, col in _EQUIPMENT_COL_MIGRATIONS:
+            if tbl in existing and col not in existing[tbl]:
+                conn.execute(_text(f'ALTER TABLE "{tbl}" ADD COLUMN "{col}" TEXT'))
+        conn.commit()
     _build_db_schema_cols()  # scan kolom kategorikal otomatis
  
 llm = ChatOpenAI(
@@ -830,6 +857,7 @@ def sync_pipeline(file_location: str, db: Session):
             area                    = str(row.get('Area', '') or ''),
             unit                    = str(row.get('Unit', '') or ''),
             tag_number              = str(row.get('TagNumber', '') or ''),
+            equipment               = str(row.get('TagNumber', '') or ''),
             last_inspection_date    = str(row.get('LastInspectionDate', '') or ''),
             next_inspection_date    = str(row.get('NextInspectionDate', '') or ''),
             fluida_service          = str(row.get('FluidaService', '') or ''),
@@ -893,6 +921,8 @@ def sync_atg(file_location: str, db: Session):
             refinery_unit           = normalize_ru(str(row.get('Refinery Unit', '') or '')),
             tag_no_tangki           = str(row.get('Tag No. Tangki', '') or ''),
             tag_no_atg              = str(row.get('Tag No. ATG', '') or ''),
+            equipment_tangki        = str(row.get('Tag No. Tangki', '') or ''),
+            equipment_atg           = str(row.get('Tag No. ATG', '') or ''),
             status_atg              = str(row.get('Status ATG', '') or ''),
             status_interkoneksi_atg = str(row.get('Status Interkoneksi ATG ', '') or ''),
             cert_no_atg             = str(row.get('Cert No ATG', '') or ''),
@@ -922,6 +952,7 @@ def sync_metering(file_location: str, db: Session):
         db.add(MeteringMonitoring(
             refinery_unit         = normalize_ru(str(row.get('Refinery Unit', '') or '')),
             tag_number            = str(row.get('Tag Number', '') or ''),
+            equipment             = str(row.get('Tag Number', '') or ''),
             status_metering       = str(row.get('Status Metering', '') or ''),
             cert_no_metering      = str(row.get('Cert No Metering', '') or ''),
             date_expired_metering = str(row.get('Date Expired Metering', '') or ''),
@@ -958,6 +989,7 @@ def sync_badactor(file_location: str, db: Session):
         db.add(BadActorMonitoring(
             ru                   = normalize_ru(str(row.get('RU', '') or '')),
             tag_number           = str(row.get('Tag Number', '') or ''),
+            equipment            = str(row.get('Tag Number', '') or ''),
             status               = str(row.get('Status', '') or ''),
             problem              = str(row.get('Problem', '') or ''),
             action_plan          = str(row.get('Action Plan', '') or ''),
@@ -1240,6 +1272,7 @@ def sync_icu(file_location: str, db: Session):
             ru                  = g('ru'),
             icu_status          = g('icu_status'),
             tag_no              = g('tag_no'),
+            equipment           = g('tag_no'),
             issue               = g('issue'),
             mitigation          = g('mitigation'),
             mitigasi_category   = g('mitigasi_category'),
@@ -1608,6 +1641,7 @@ def sync_zero_clamp(file_location: str, db: Session):
             area                      = _safe(row.get('AREA')),
             unit                      = _safe(row.get('UNIT')),
             tag_no_ln                 = _safe(row.get('TAG NO/LN')),
+            equipment                 = _safe(row.get('TAG NO/LN')),
             services                  = _safe(row.get('Services')),
             description               = _safe(row.get('Description')),
             type_damage               = _safe(row.get('TYPE DAMAGE')),
@@ -1782,6 +1816,7 @@ def sync_inspection_plan(file_location: str, db: Session):
             area                  = _safe(row.get('Area')),
             unit                  = _safe(row.get('Unit')),
             tag_no_ln             = _safe(row.get('Tag No/LN')),
+            equipment             = _safe(row.get('Tag No/LN')),
             type_equipment        = _safe(row.get('Type Equipment')),
             type_inspection       = _safe(row.get('Type Inspection')),
             type_pekerjaan        = _safe(row.get('Type Pekerjaan')),
@@ -1911,6 +1946,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
             area                   = _safe(row.get('Area')),
             unit                   = _safe(row.get('Unit')),
             tag_no                 = _safe(row.get('Tag No')),
+            equipment              = _safe(row.get('Tag No')),
             status_operation       = _safe(row.get('Status Operation')),
             no_tuks                = _safe(row.get('Nomor Surat TUKS')),
             expired_tuks           = _to_date_str(row.get('TUKS (Expired Date)')),
@@ -1949,6 +1985,7 @@ def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
             area                 = _safe(row.get('Area')),
             unit                 = _safe(row.get('Unit')),
             tag_no               = _safe(row.get('Tag No')),
+            equipment            = _safe(row.get('Tag No')),
             item                 = _safe(row.get('Item')),
             status_item          = _safe(row.get('Status Item')),
             remark               = _safe(row.get('Remark/Kondisi Item')),
@@ -1979,6 +2016,7 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
             area                      = _safe(row.get('Area')),
             unit                      = _safe(row.get('Unit')),
             tag_number                = _safe(row.get('Tag Number')),
+            equipment                 = _safe(row.get('Tag Number')),
             type_tangki               = _safe(row.get('Type Tangki')),
             service_tangki            = _safe(row.get('Service Tangki')),
             prioritas                 = _safe(row.get('Prioritas')),
@@ -2018,6 +2056,7 @@ def sync_workplan_tank(file_location: str, db: Session, mode: str = "replace"):
         db.add(WorkplanTank(
             unit                 = _safe(row.get('Unit')),
             tag_no               = _safe(row.get('Tag No')),
+            equipment            = _safe(row.get('Tag No')),
             item                 = _safe(row.get('Item')),
             remark               = _safe(row.get('Remark/Kondisi Item')),
             rtl_action_plan      = _safe(row.get('RTL/Action Plan')),
@@ -2047,6 +2086,7 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
             area                  = _safe(row.get('Area')),
             unit                  = _safe(row.get('Unit')),
             tag_no                = _safe(row.get('Tag No')),
+            equipment             = _safe(row.get('Tag No')),
             status_operation      = _safe(row.get('Status Operation')),
             no_laik_operasi       = _safe(row.get('Nomor Persetujuan Laik Operasi (MIGAS)')),
             expired_laik_operasi  = _to_date_str(row.get('Expired Persetujuan Laik Operasi (MIGAS)')),
@@ -2084,6 +2124,7 @@ def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
             area                 = _safe(row.get('Area')),
             unit                 = _safe(row.get('Unit')),
             tag_no               = _safe(row.get('Tag No')),
+            equipment            = _safe(row.get('Tag No')),
             item                 = _safe(row.get('Item')),
             remark               = _safe(row.get('Remark/Kondisi Item')),
             rtl_action_plan      = _safe(row.get('RTL/Action Plan')),
@@ -2155,6 +2196,7 @@ def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
             area                         = _safe(row.get('AREA')),
             unit_process                 = _safe(row.get('UNIT PROCESS')),
             tag_no                       = _safe(row.get('TAG NO')),
+            equipment                    = _safe(row.get('TAG NO')),
             dasar_pengusulan             = _safe(row.get('DASAR PENGUSULAN PROGRAM KERJA')),
             rekomendasi                  = _safe(row.get('REKOMENDASI')),
             program_kerja                = _safe(row.get('PROGRAM KERJA')),
