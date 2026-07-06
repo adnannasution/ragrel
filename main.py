@@ -1997,7 +1997,7 @@ def sync_boc(file_location: str, db: Session):
             mtbf           = _to_float(row.get('MTBF')),
             hasil          = _safe(row.get('hasil')),
             remark         = _safe(row.get('Remark')),
-            periode        = to_periode(row.get('periode') or row.get('Periode')),
+            periode        = _to_date_str(row.get('periode') or row.get('Periode')),
         ))
         count += 1
     db.commit()
