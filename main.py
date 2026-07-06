@@ -1802,7 +1802,7 @@ def sync_critical_utl(file_location: str, db: Session):
             target_mitigasi    = _safe(row.get('Target.1')),
             traffic_mitigasi   = _safe(row.get('Traffic.1')),
             month_update       = _safe(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode            = to_periode(row.get('Update') or row.get('Month Update')),
             code_current       = _to_int(row.get('Code Current')),
         ))
         count += 1
