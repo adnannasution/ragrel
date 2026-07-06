@@ -394,6 +394,8 @@ class BOC(Base):
     mttr            = Column(Float)
     mtbf            = Column(Float)
     hasil           = Column(Text)
+    remark          = Column(Text)
+    periode         = Column(Text)
 
 # ─── 21. READINESS JETTY ─────────────────────────────────────────────────────
 class ReadinessJetty(Base):
