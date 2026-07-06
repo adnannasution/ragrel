@@ -1715,7 +1715,12 @@ def sync_zero_clamp(file_location: str, db: Session):
 def sync_issue_paf(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
+    # Ambil kolom Month Update kedua (tanggal asli) sebelum _dedup_columns membuangnya
+    mu_cols = [c for c in df.columns if str(c).strip() == 'Month Update']
+    date_update_series = df[mu_cols[1]] if len(mu_cols) >= 2 else None
     df = _dedup_columns(df)
+    if date_update_series is not None:
+        df['_date_update'] = date_update_series.values
     db.query(IssuePAF).delete()
     count = 0
     for _, row in df.iterrows():
@@ -1725,7 +1730,7 @@ def sync_issue_paf(file_location: str, db: Session):
             date         = _to_date_str(row.get('Date')),
             issue        = _safe(row.get('Issue')),
             month_update = _safe(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode      = to_periode(row.get('_date_update') or row.get('Month Update')),
             code_current = _to_int(row.get('Code Current')),
         ))
         count += 1
