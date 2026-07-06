@@ -826,7 +826,7 @@ def sync_pipeline(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(PipelineInspection(
-            refinery_unit           = str(row.get('RefineryUnit', '') or ''),
+            refinery_unit           = normalize_ru(str(row.get('RefineryUnit', '') or '')),
             area                    = str(row.get('Area', '') or ''),
             unit                    = str(row.get('Unit', '') or ''),
             tag_number              = str(row.get('TagNumber', '') or ''),
@@ -859,7 +859,7 @@ def sync_rotor(file_location: str, db: Session):
     for _, row in df.iterrows():
         db.add(RotorMonitoring(
             no                     = int(row['No']) if pd.notna(row.get('No')) else None,
-            refinery_unit          = str(row.get('Refinery Unit', '') or ''),
+            refinery_unit          = normalize_ru(str(row.get('Refinery Unit', '') or '')),
             bulan                  = str(row.get('Bulan', '') or ''),
             rotor                  = str(row.get('Rotor', '') or ''),
             program                = str(row.get('Program', '') or ''),
@@ -890,7 +890,7 @@ def sync_atg(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(ATGMonitoring(
-            refinery_unit           = str(row.get('Refinery Unit', '') or ''),
+            refinery_unit           = normalize_ru(str(row.get('Refinery Unit', '') or '')),
             tag_no_tangki           = str(row.get('Tag No. Tangki', '') or ''),
             tag_no_atg              = str(row.get('Tag No. ATG', '') or ''),
             status_atg              = str(row.get('Status ATG', '') or ''),
@@ -920,7 +920,7 @@ def sync_metering(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(MeteringMonitoring(
-            refinery_unit         = str(row.get('Refinery Unit', '') or ''),
+            refinery_unit         = normalize_ru(str(row.get('Refinery Unit', '') or '')),
             tag_number            = str(row.get('Tag Number', '') or ''),
             status_metering       = str(row.get('Status Metering', '') or ''),
             cert_no_metering      = str(row.get('Cert No Metering', '') or ''),
@@ -956,7 +956,7 @@ def sync_badactor(file_location: str, db: Session):
         periode = row.get('Periode')
         periode_str = str(periode.date()) if pd.notna(periode) and hasattr(periode, 'date') else str(periode or '')
         db.add(BadActorMonitoring(
-            ru                   = str(row.get('RU', '') or ''),
+            ru                   = normalize_ru(str(row.get('RU', '') or '')),
             tag_number           = str(row.get('Tag Number', '') or ''),
             status               = str(row.get('Status', '') or ''),
             problem              = str(row.get('Problem', '') or ''),
@@ -988,6 +988,52 @@ def _safe(val) -> str:
     except Exception:
         pass
     return str(val).strip()
+
+_RU_SUFFIX_MAP = {
+    "201": "RU II Dumai",
+    "202": "RU II Pakning",
+    "301": "RU III Plaju",
+    "401": "RU IV Cilacap",
+    "501": "RU V Balikpapan",
+    "601": "RU VI Balongan",
+    "701": "RU VII Kasim",
+}
+
+_RU_KEYWORD_MAP = [
+    # Urutan dari paling panjang supaya "vii" tidak tertangkap oleh "vi" atau "v"
+    (("vii", "7"), {"kasim": "RU VII Kasim", "": "RU VII Kasim"}),
+    (("vi",  "6"), {"balongan": "RU VI Balongan", "": "RU VI Balongan"}),
+    (("v",   "5"), {"balikpapan": "RU V Balikpapan", "": "RU V Balikpapan"}),
+    (("iv",  "4"), {"cilacap": "RU IV Cilacap", "": "RU IV Cilacap"}),
+    (("iii", "3"), {"plaju": "RU III Plaju", "": "RU III Plaju"}),
+    (("ii",  "2"), {"dumai": "RU II Dumai", "pakning": "RU II Pakning", "": "RU II Dumai"}),
+]
+
+def normalize_ru(val: str) -> str:
+    """Normalisasi berbagai format penulisan RU ke format baku, misal 'RU II Dumai'."""
+    if not val:
+        return val
+    s = val.strip()
+
+    # Cek suffix 3 digit terakhir (K201, R201, 6201, dst.)
+    digits = ''.join(filter(str.isdigit, s))
+    if len(digits) >= 3:
+        suffix = digits[-3:]
+        if suffix in _RU_SUFFIX_MAP:
+            return _RU_SUFFIX_MAP[suffix]
+
+    # Cek pola kata kunci: angka romawi/angka + nama kota opsional
+    sl = s.lower().replace("-", " ").replace("_", " ")
+    for roman_keys, city_map in _RU_KEYWORD_MAP:
+        for rk in roman_keys:
+            # Pastikan token RU + angka romawi ada (bukan substring acak)
+            if f"ru {rk}" in sl or sl == f"ru{rk}":
+                for city_key, canonical in city_map.items():
+                    if city_key and city_key in sl:
+                        return canonical
+                return city_map[""]  # fallback tanpa nama kota
+
+    return s  # tidak dikenali → kembalikan aslinya
 
 def _safe_num(val):
     """Konversi ke Decimal/float untuk kolom Numeric — return None jika kosong."""
@@ -1238,7 +1284,7 @@ def sync_prokja_atg(file_location: str, db: Session):
             month_update = _safe(mu)
 
         db.add(ProgramKerjaATG(
-            refinery_unit        = g("Refinery Unit"),
+            refinery_unit        = normalize_ru(g("Refinery Unit")),
             type                 = g("Type"),
             atg_eksisting        = g("ATG Eksisting"),
             program_2024         = g("Program 2024"),
@@ -1533,7 +1579,7 @@ def sync_paf(file_location: str, db: Session):
         db.add(PAF(
             month_update     = _safe(row.get('Month Update')),
             type             = _safe(row.get('Type')),
-            ru               = _safe(row.get('RU')),
+            ru               = normalize_ru(_safe(row.get('RU'))),
             target_realisasi = _safe(row.get('Target/Realisasi')),
             color            = _safe(row.get('Color')),
             value            = _to_float(row.get('Value')),
@@ -1558,7 +1604,7 @@ def sync_zero_clamp(file_location: str, db: Session):
     for _, row in df.iterrows():
         db.add(ZeroClamp(
             no                        = _to_int(row.get('NO')),
-            ru                        = _safe(row.get('RU')),
+            ru                        = normalize_ru(_safe(row.get('RU'))),
             area                      = _safe(row.get('AREA')),
             unit                      = _safe(row.get('UNIT')),
             tag_no_ln                 = _safe(row.get('TAG NO/LN')),
@@ -1587,7 +1633,7 @@ def sync_issue_paf(file_location: str, db: Session):
     for _, row in df.iterrows():
         db.add(IssuePAF(
             type         = _safe(row.get('Type')),
-            ru           = _safe(row.get('RU')),
+            ru           = normalize_ru(_safe(row.get('RU'))),
             date         = _to_date_str(row.get('Date')),
             issue        = _safe(row.get('Issue')),
             month_update = _safe(row.get('Month Update')),
@@ -1605,7 +1651,7 @@ def sync_power_stream(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(PowerStream(
-            refinery_unit    = _safe(row.get('Refinert Unit')),
+            refinery_unit    = normalize_ru(_safe(row.get('Refinert Unit'))),
             type_equipment   = _safe(row.get('Type Equipment')),
             equipment        = _safe(row.get('Equipment')),
             status_operation = _safe(row.get('Status Operation')),
@@ -1631,7 +1677,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(JumlahEqpUTL(
-            refinery_unit    = _safe(row.get('Refinery Unit')),
+            refinery_unit    = normalize_ru(_safe(row.get('Refinery Unit'))),
             type_equipment   = _safe(row.get('Type Equipment')),
             status_equipment = _safe(row.get('Status Equipment')),
             jumlah           = _to_int(row.get('Jumlah')),
@@ -1650,7 +1696,7 @@ def sync_critical_utl(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(CriticalEqpUTL(
-            refinery_unit      = _safe(row.get('Refinery Unit')),
+            refinery_unit      = normalize_ru(_safe(row.get('Refinery Unit'))),
             type_equipment     = _safe(row.get('Type Equipment')),
             highlight_issue    = _safe(row.get('Highlight Issue')),
             corrective_action  = _safe(row.get('Corrective & Quick Win Action')),
@@ -1674,7 +1720,7 @@ def sync_critical_prim(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(CriticalEqpPrimSec(
-            refinery_unit      = _safe(row.get('Refinery Unit')),
+            refinery_unit      = normalize_ru(_safe(row.get('Refinery Unit'))),
             unit_proses        = _safe(row.get('Unit Proses')),
             equipment          = _safe(row.get('Equipment')),
             highlight_issue    = _safe(row.get('Highlight Issue')),
@@ -1699,7 +1745,7 @@ def sync_mon_operasi(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(MonitoringOperasi(
-            refinery_unit          = _safe(row.get('Refinery Unit')),
+            refinery_unit          = normalize_ru(_safe(row.get('Refinery Unit'))),
             unit_proses            = _safe(row.get('Unit Proses')),
             unit                   = _safe(row.get('Unit')),
             unit_measurement       = _safe(row.get('Unit Measurement')),
@@ -1732,7 +1778,7 @@ def sync_inspection_plan(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(InspectionPlan(
-            refinery_unit         = _safe(row.get('Refinery Unit')),
+            refinery_unit         = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                  = _safe(row.get('Area')),
             unit                  = _safe(row.get('Unit')),
             tag_no_ln             = _safe(row.get('Tag No/LN')),
@@ -1764,7 +1810,7 @@ def sync_tkdn(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(TKDN(
-            refinery_unit = _safe(row.get('Refinery Unit')),
+            refinery_unit = normalize_ru(_safe(row.get('Refinery Unit'))),
             bulan         = _safe(row.get('BULAN')),
             nominal       = _to_float(row.get('NOMINAL')),
             kdn           = _to_float(row.get('KDN')),
@@ -1834,7 +1880,7 @@ def sync_boc(file_location: str, db: Session):
     count = 0
     for _, row in df.iterrows():
         db.add(BOC(
-            ru             = _safe(row.get('RU') or row.get('RU_Sheet1')),
+            ru             = normalize_ru(_safe(row.get('RU') or row.get('RU_Sheet1'))),
             area           = _safe(row.get('Area')),
             unit           = _safe(row.get('Unit')),
             equipment      = _safe(row.get('Equipment')),
@@ -1861,7 +1907,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessJetty(
-            refinery_unit          = _safe(row.get('Refinery Unit')),
+            refinery_unit          = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                   = _safe(row.get('Area')),
             unit                   = _safe(row.get('Unit')),
             tag_no                 = _safe(row.get('Tag No')),
@@ -1899,7 +1945,7 @@ def sync_workplan_jetty(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(WorkplanJetty(
-            refinery_unit        = _safe(row.get('Refinery Unit')),
+            refinery_unit        = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                 = _safe(row.get('Area')),
             unit                 = _safe(row.get('Unit')),
             tag_no               = _safe(row.get('Tag No')),
@@ -1929,7 +1975,7 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessTank(
-            refinery_unit             = _safe(row.get('Refinery Unit')),
+            refinery_unit             = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                      = _safe(row.get('Area')),
             unit                      = _safe(row.get('Unit')),
             tag_number                = _safe(row.get('Tag Number')),
@@ -1997,7 +2043,7 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessSPM(
-            refinery_unit         = _safe(row.get('Refinery Unit')),
+            refinery_unit         = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                  = _safe(row.get('Area')),
             unit                  = _safe(row.get('Unit')),
             tag_no                = _safe(row.get('Tag No')),
@@ -2034,7 +2080,7 @@ def sync_spm_workplan(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(SPMWorkplan(
-            refinery_unit        = _safe(row.get('Refinery Unit')),
+            refinery_unit        = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                 = _safe(row.get('Area')),
             unit                 = _safe(row.get('Unit')),
             tag_no               = _safe(row.get('Tag No')),
@@ -2062,7 +2108,7 @@ def sync_irkap_program(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(IrkapProgram(
-            refinery_unit               = _safe(row.get('Refinery Unit')),
+            refinery_unit               = normalize_ru(_safe(row.get('Refinery Unit'))),
             disiplin                    = _safe(row.get('Disiplin')),
             kategori_rkap               = _safe(row.get('Kategori RKAP')),
             material_jasa               = _safe(row.get('Material/Jasa')),
@@ -2105,7 +2151,7 @@ def sync_irkap_actual(file_location: str, db: Session, mode: str = "replace"):
             no_program                   = _safe(row.get('NO PROGRAM')),
             kategori_rkap                = _safe(row.get('KATEGORI RKAP')),
             program_asset_integrity      = _safe(row.get('PROGRAM ASSET INTEGRITY')),
-            refinery_unit                = _safe(row.get('REFINERY UNIT')),
+            refinery_unit                = normalize_ru(_safe(row.get('REFINERY UNIT'))),
             area                         = _safe(row.get('AREA')),
             unit_process                 = _safe(row.get('UNIT PROCESS')),
             tag_no                       = _safe(row.get('TAG NO')),
@@ -2294,7 +2340,7 @@ def sync_oa(file_location: str, db: Session):
         except Exception:
             val = None
         db.add(OAMonitoring(
-            refinery_unit = _safe(row.get('Refinery Unit')),
+            refinery_unit = normalize_ru(_safe(row.get('Refinery Unit'))),
             actual_target = _safe(row.get('Actual/Target')),
             value_perc    = val,
             month_update  = _safe(row.get('Month Update')),
@@ -2320,7 +2366,7 @@ def sync_plo(file_location: str, db: Session):
         except Exception:
             days = None
         db.add(PLOMonitoring(
-            refinery_unit                = _safe(row.get('RefineryUnit')),
+            refinery_unit                = normalize_ru(_safe(row.get('RefineryUnit'))),
             nomor_ijin                   = _safe(row.get('NomorIjin')),
             nama_plo                     = _safe(row.get('NamaPLO')),
             cakupan_unit_plant_kapasitas = _safe(row.get('CakupanUnitPlantKapasitasTertera')),
