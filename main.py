@@ -197,6 +197,104 @@ def startup():
                 conn.execute(_text(f'ALTER TABLE "{tbl}" ADD COLUMN "periode" TEXT'))
         if 'boc' in existing and 'remark' not in existing['boc']:
             conn.execute(_text('ALTER TABLE "boc" ADD COLUMN "remark" TEXT'))
+
+        # Kolom baru readiness_jetty
+        _jetty_cols = [
+            'rtl_struktur','status_mooring_dolphin','remark_mooring_dolphin','rtl_mooring_dolphin',
+            'status_breasting_dolphin','remark_breasting_dolphin','rtl_breasting_dolphin',
+            'rtl_trestle','status_rubber_fender','remark_rubber_fender','rtl_rubber_fender',
+            'rtl_mla','status_arc','remark_arc','rtl_arc',
+            'status_qrh','remark_qrh','rtl_qrh',
+            'status_piping','remark_piping','rtl_piping',
+            'status_cathodic','remark_cathodic','rtl_cathodic',
+            'status_grounding','remark_grounding','rtl_grounding',
+            'status_catwalk','remark_catwalk','rtl_catwalk',
+            'status_gangway','remark_gangway','rtl_gangway',
+            'status_lampu','remark_lampu','rtl_lampu',
+            'status_crane','remark_crane','rtl_crane',
+            'status_berthing','remark_berthing','rtl_berthing',
+            'status_alur','remark_alur','rtl_alur',
+            'rtl_fire_protection','status_oil_pollution','remark_oil_pollution','rtl_oil_pollution',
+            'status_apar','remark_apar','rtl_apar',
+        ]
+        for col in _jetty_cols:
+            if 'readiness_jetty' in existing and col not in existing['readiness_jetty']:
+                conn.execute(_text(f'ALTER TABLE "readiness_jetty" ADD COLUMN "{col}" TEXT'))
+
+        # Kolom baru readiness_spm
+        _spm_cols = [
+            'rtl_mbc','status_guard_rail','remark_guard_rail','rtl_guard_rail',
+            'rtl_lds','status_navigation_aid','remark_navigation_aid','rtl_navigation_aid',
+            'status_buoy_body','remark_buoy_body','rtl_buoy_body',
+            'status_turn_table','remark_turn_table','rtl_turn_table',
+            'status_mrb','remark_mrb','rtl_mrb',
+            'status_swivel_bearing','remark_swivel_bearing','rtl_swivel_bearing',
+            'status_cpu','remark_cpu','rtl_cpu',
+            'rtl_mooring_hawser','status_anchor_chain','remark_anchor_chain','rtl_anchor_chain',
+            'rtl_floating_hose','status_subsea_hose','remark_subsea_hose','rtl_subsea_hose',
+            'status_camlock','remark_camlock','rtl_camlock',
+            'remark_cathodic_spl','rtl_cathodic_spl','remark_cathodic_spm','rtl_cathodic_spm',
+            'status_expansion_joint','remark_expansion_joint','rtl_expansion_joint',
+            'status_plem','remark_plem','rtl_plem',
+            'status_pressure_indicator','remark_pressure_indicator','rtl_pressure_indicator',
+            'status_submarine_pipeline','remark_submarine_pipeline','rtl_submarine_pipeline',
+            'status_temp_indicator','remark_temp_indicator','rtl_temp_indicator',
+        ]
+        for col in _spm_cols:
+            if 'readiness_spm' in existing and col not in existing['readiness_spm']:
+                conn.execute(_text(f'ALTER TABLE "readiness_spm" ADD COLUMN "{col}" TEXT'))
+
+        # Kolom baru readiness_tank
+        _tank_cols = [
+            'date_expired_tera','status_tera','cert_no_tera',
+            'rtl_atg','remark_grounding','rtl_grounding',
+            'status_bonding','remark_bonding','rtl_bonding',
+            'status_temp_indicator','remark_temp_indicator','rtl_temp_indicator',
+            'status_level_indicator','remark_level_indicator','rtl_level_indicator',
+            'status_gauge_hatch','remark_gauge_hatch','rtl_gauge_hatch',
+            'status_alarm','remark_alarm','rtl_alarm',
+            'status_ihla','remark_ihla','rtl_ihla',
+            'status_water_sprinkle','remark_water_sprinkle','rtl_water_sprinkle',
+            'status_foam_chamber','remark_foam_chamber','rtl_foam_chamber',
+            'status_gun_monitor','remark_gun_monitor','rtl_gun_monitor',
+            'status_fgds','remark_fgds','rtl_fgds',
+            'status_lps','remark_lps','rtl_lps',
+            'rtl_cathodic','rtl_shell_course','rtl_roof',
+            'status_pv_vent','remark_pv_vent','rtl_pv_vent',
+            'status_tank_heater','remark_tank_heater','rtl_tank_heater',
+            'status_mixer','remark_mixer','rtl_mixer',
+            'status_stairway','remark_stairway','rtl_stairway',
+            'status_annular_plate','remark_annular_plate','rtl_annular_plate',
+            'status_bottom_plate','remark_bottom_plate','rtl_bottom_plate',
+            'status_gate_valve','remark_gate_valve','rtl_gate_valve',
+            'status_foundation','remark_foundation','rtl_foundation',
+            'status_expansion_joint','remark_expansion_joint','rtl_expansion_joint',
+            'status_roof_drain','remark_roof_drain','rtl_roof_drain',
+            'status_esv_psv','remark_esv_psv','rtl_esv_psv',
+            'status_mov','remark_mov','rtl_mov',
+            'status_rolling_ladder','remark_rolling_ladder','rtl_rolling_ladder',
+            'status_skirt_fireproofing','remark_skirt_fireproofing','rtl_skirt_fireproofing',
+            'status_painting','remark_painting','rtl_painting',
+            'status_roof_seal','remark_roof_seal','rtl_roof_seal',
+        ]
+        for col in _tank_cols:
+            if 'readiness_tank' in existing and col not in existing['readiness_tank']:
+                conn.execute(_text(f'ALTER TABLE "readiness_tank" ADD COLUMN "{col}" TEXT'))
+
+        # Kolom baru rcps dan rcps_rekomendasi
+        if 'rcps' in existing and 'periode' not in existing['rcps']:
+            conn.execute(_text('ALTER TABLE "rcps" ADD COLUMN "periode" TEXT'))
+        if 'rcps_rekomendasi' in existing and 'periode' not in existing['rcps_rekomendasi']:
+            conn.execute(_text('ALTER TABLE "rcps_rekomendasi" ADD COLUMN "periode" TEXT'))
+
+        # Kolom baru inspection_plan
+        if 'inspection_plan' in existing and 'periode' not in existing['inspection_plan']:
+            conn.execute(_text('ALTER TABLE "inspection_plan" ADD COLUMN "periode" TEXT'))
+
+        # Kolom baru zero_clamp
+        if 'zero_clamp' in existing and 'periode' not in existing['zero_clamp']:
+            conn.execute(_text('ALTER TABLE "zero_clamp" ADD COLUMN "periode" TEXT'))
+
         conn.commit()
     _build_db_schema_cols()  # scan kolom kategorikal otomatis
  
@@ -1127,6 +1225,7 @@ _DATE_FORMATS = [
     '%d/%m/%Y','%d-%m-%Y','%Y-%m-%d','%Y/%m/%d',
     '%d/%m/%y','%d-%m-%y','%m/%d/%Y','%m-%d-%Y',
     '%d %B %Y','%d %b %Y','%B %Y','%b %Y',
+    '%b-%y','%B-%y','%b-%Y','%B-%Y',
 ]
 
 def _try_parse_date(val) -> str | None:
@@ -1169,6 +1268,14 @@ def _try_parse_date(val) -> str | None:
         except Exception:
             pass
     return None
+
+def _last_month_periode() -> str:
+    """Kembalikan YYYY-MM-01 dari bulan lalu (relatif terhadap tanggal upload)."""
+    from datetime import date
+    today = date.today()
+    if today.month == 1:
+        return f"{today.year - 1}-12-01"
+    return f"{today.year}-{today.month - 1:02d}-01"
 
 def to_periode(val=None, bulan=None, tahun=None) -> str | None:
     """
@@ -1709,6 +1816,7 @@ def sync_zero_clamp(file_location: str, db: Session):
             no_irkap                  = _safe(row.get('NO IRKAP')),
             status                    = _safe(row.get('STATUS')),
             remarks                   = _safe(row.get('Remarks')),
+            periode                   = to_periode(_to_date_str(row.get('TANGGAL DIPASANG'))),
         ))
         count += 1
     db.commit()
@@ -1779,7 +1887,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
             status_equipment = _safe(row.get('Status Equipment')),
             jumlah           = _to_int(row.get('Jumlah')),
             month_update     = _safe(row.get('Month Update')),
-            periode          = to_periode(row.get('Update') or row.get('Month Update')),
+            periode          = _last_month_periode(),
             code_current     = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1864,7 +1972,7 @@ def sync_mon_operasi(file_location: str, db: Session):
             limitasi_alert_sts     = _safe(row.get('Limitasi/Alert STS')),
             mitigasi_sts           = _safe(row.get('Mitigasi_STS')),
             month_update           = _safe(row.get('Month Update')),
-            periode                = to_periode(row.get('Update')),
+            periode                = _last_month_periode(),
             code_current           = _to_int(row.get('Code Current')),
         ))
         count += 1
@@ -1875,15 +1983,28 @@ def sync_inspection_plan(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
     df = _dedup_columns(df)
+
+    def _fcol(*candidates):
+        for c in candidates:
+            if c in df.columns:
+                return c
+            matches = [col for col in df.columns if c.lower() in col.lower()]
+            if matches:
+                return matches[0]
+        return None
+
+    tag_col = _fcol('Tag No/LN', 'Tag No', 'Tag No / LN', 'Tag No LN')
+
     db.query(InspectionPlan).delete()
     count = 0
     for _, row in df.iterrows():
+        tag_val = _safe(row.get(tag_col)) if tag_col else ''
         db.add(InspectionPlan(
             refinery_unit         = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                  = _safe(row.get('Area')),
             unit                  = _safe(row.get('Unit')),
-            tag_no_ln             = _safe(row.get('Tag No/LN')),
-            equipment             = _safe(row.get('Tag No/LN')),
+            tag_no_ln             = tag_val,
+            equipment             = tag_val,
             type_equipment        = _safe(row.get('Type Equipment')),
             type_inspection       = _safe(row.get('Type Inspection')),
             type_pekerjaan        = _safe(row.get('Type Pekerjaan')),
@@ -1894,6 +2015,7 @@ def sync_inspection_plan(file_location: str, db: Session):
             actual_date           = _to_date_str(row.get('Actual Date')),
             actual_year           = _to_int(row.get('Actual Year')),
             update_date           = _to_date_str(row.get('Update Date')),
+            periode               = to_periode(_to_date_str(row.get('Due Date'))),
             result_remaining_life = _to_float(row.get('Result Remaining Life')),
             result_visual         = _safe(row.get('Result Visual')),
             visual_lainnya        = _safe(row.get('Visual Lainnya')),
@@ -1948,6 +2070,7 @@ def sync_rcps_rekomendasi(file_location: str, db: Session):
             external_resource       = _safe(row.get('Recommendation Need External Resource?')),
             no_irkap                = _safe(row.get('No. IRKAP')),
             remark                  = _safe(row.get('Remark')),
+            periode                 = _last_month_periode(),
         ))
         count += 1
     db.commit()
@@ -1970,6 +2093,7 @@ def sync_rcps(file_location: str, db: Session):
             judul_rcps      = _safe(row.get('Judul RCPS')),
             rcps_no         = _safe(row.get('RCPS No')),
             criticallity    = _safe(row.get('Criticallity')),
+            periode         = _last_month_periode(),
         ))
         count += 1
     db.commit()
@@ -2012,31 +2136,83 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessJetty(
-            refinery_unit          = normalize_ru(_safe(row.get('Refinery Unit'))),
-            area                   = _safe(row.get('Area')),
-            unit                   = _safe(row.get('Unit')),
-            tag_no                 = _safe(row.get('Tag No')),
-            equipment              = _safe(row.get('Tag No')),
-            status_operation       = _safe(row.get('Status Operation')),
-            no_tuks                = _safe(row.get('Nomor Surat TUKS')),
-            expired_tuks           = _to_date_str(row.get('TUKS (Expired Date)')),
-            status_tuks            = _safe(row.get('Status TUKS')),
-            no_ijin_ops            = _safe(row.get('Nomor Surat pemberian ijin OPS')),
-            expired_ijin_ops       = _to_date_str(row.get('Surat pemberian ijin OPS (Expired Date)')),
-            status_ijin_ops        = _safe(row.get('Status Surat pemberian ijin OPS')),
-            no_isps                = _safe(row.get('Nomor Surat ISPS code')),
-            expired_isps           = _to_date_str(row.get('Surat ISPS code (Expired Date)')),
-            status_isps            = _safe(row.get('Status Surat ISPS code')),
-            status_struktur        = _safe(row.get('Status Struktur jetty head')),
-            remark_struktur        = _safe(row.get('Remark Struktur jetty head')),
-            status_trestle         = _safe(row.get('Status Trestle')),
-            remark_trestle         = _safe(row.get('Remark Trestle')),
-            status_mla             = _safe(row.get('Status Marine loading arm/cargo hose')),
-            remark_mla             = _safe(row.get('Remark Marine loading arm/cargo hose')),
-            status_fire_protection = _safe(row.get('Status Fire protection/ fire hydrant')),
-            remark_fire_protection = _safe(row.get('Remark Fire protection/ fire hydrant')),
-            month_update           = _to_date_str(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            refinery_unit               = normalize_ru(_safe(row.get('Refinery Unit'))),
+            area                        = _safe(row.get('Area')),
+            unit                        = _safe(row.get('Unit')),
+            tag_no                      = _safe(row.get('Tag No')),
+            equipment                   = _safe(row.get('Tag No')),
+            status_operation            = _safe(row.get('Status Operation')),
+            no_tuks                     = _safe(row.get('Nomor Surat TUKS')),
+            expired_tuks                = _to_date_str(row.get('TUKS (Expired Date)')),
+            status_tuks                 = _safe(row.get('Status TUKS')),
+            no_ijin_ops                 = _safe(row.get('Nomor Surat pemberian ijin OPS')),
+            expired_ijin_ops            = _to_date_str(row.get('Surat pemberian ijin OPS (Expired Date)')),
+            status_ijin_ops             = _safe(row.get('Status Surat pemberian ijin OPS')),
+            no_isps                     = _safe(row.get('Nomor Surat ISPS code')),
+            expired_isps                = _to_date_str(row.get('Surat ISPS code (Expired Date)')),
+            status_isps                 = _safe(row.get('Status Surat ISPS code')),
+            status_struktur             = _safe(row.get('Status Struktur jetty head')),
+            remark_struktur             = _safe(row.get('Remark Struktur jetty head')),
+            rtl_struktur                = _safe(row.get('RTL Struktur jetty head')),
+            status_mooring_dolphin      = _safe(row.get('Status Mooring dolphin')),
+            remark_mooring_dolphin      = _safe(row.get('Remark Mooring dolphin')),
+            rtl_mooring_dolphin         = _safe(row.get('RTL Mooring dolphin')),
+            status_breasting_dolphin    = _safe(row.get('Status Breasting dolphin')),
+            remark_breasting_dolphin    = _safe(row.get('Remark Breasting dolphin')),
+            rtl_breasting_dolphin       = _safe(row.get('RTL Breasting dolphin')),
+            status_trestle              = _safe(row.get('Status Trestle')),
+            remark_trestle              = _safe(row.get('Remark Trestle')),
+            rtl_trestle                 = _safe(row.get('RTL Trestle')),
+            status_rubber_fender        = _safe(row.get('Status Rubber fender system')),
+            remark_rubber_fender        = _safe(row.get('Remark Rubber fender system')),
+            rtl_rubber_fender           = _safe(row.get('RTL Rubber fender system')),
+            status_mla                  = _safe(row.get('Status Marine loading arm/cargo hose')),
+            remark_mla                  = _safe(row.get('Remark Marine loading arm/cargo hose')),
+            rtl_mla                     = _safe(row.get('RTL Marine loading arm/cargo hose')),
+            status_arc                  = _safe(row.get('Status Automatic release coupling')),
+            remark_arc                  = _safe(row.get('Remark Automatic release coupling')),
+            rtl_arc                     = _safe(row.get('RTL Automatic release coupling')),
+            status_qrh                  = _safe(row.get('Status QRH/bollard/bolder')),
+            remark_qrh                  = _safe(row.get('Remark QRH/bollard/bolder')),
+            rtl_qrh                     = _safe(row.get('RTL QRH/bollard/bolder')),
+            status_piping               = _safe(row.get('Status piping line system')),
+            remark_piping               = _safe(row.get('Remark piping line system')),
+            rtl_piping                  = _safe(row.get('RTL piping line system')),
+            status_cathodic             = _safe(row.get('Status Cathodic protection')),
+            remark_cathodic             = _safe(row.get('Remark Cathodic protection')),
+            rtl_cathodic                = _safe(row.get('RTL Cathodic protection')),
+            status_grounding            = _safe(row.get('Status Grounding/bonding')),
+            remark_grounding            = _safe(row.get('Remark Grounding/bonding')),
+            rtl_grounding               = _safe(row.get('RTL Grounding/bonding')),
+            status_catwalk              = _safe(row.get('Status Catwalk handrailing/walkway')),
+            remark_catwalk              = _safe(row.get('Remark Catwalk handrailing/walkway')),
+            rtl_catwalk                 = _safe(row.get('RTL Catwalk handrailing/walkway')),
+            status_gangway              = _safe(row.get('Status Gangway')),
+            remark_gangway              = _safe(row.get('Remark Gangway')),
+            rtl_gangway                 = _safe(row.get('RTL Gangway')),
+            status_lampu                = _safe(row.get('Status Lampu penerangan')),
+            remark_lampu                = _safe(row.get('Remark Lampu penerangan')),
+            rtl_lampu                   = _safe(row.get('RTL Lampu penerangan')),
+            status_crane                = _safe(row.get('Status Crane')),
+            remark_crane                = _safe(row.get('Remark Crane')),
+            rtl_crane                   = _safe(row.get('RTL Crane')),
+            status_berthing             = _safe(row.get('Status Berthing speed monitor')),
+            remark_berthing             = _safe(row.get('Remark Berthing speed monitor')),
+            rtl_berthing                = _safe(row.get('RTL Berthing speed monitor')),
+            status_alur                 = _safe(row.get('Status Alur kolam dermaga')),
+            remark_alur                 = _safe(row.get('Remark Alur kolam dermaga')),
+            rtl_alur                    = _safe(row.get('RTL Alur kolam dermaga')),
+            status_fire_protection      = _safe(row.get('Status Fire protection/ fire hydrant')),
+            remark_fire_protection      = _safe(row.get('Remark Fire protection/ fire hydrant')),
+            rtl_fire_protection         = _safe(row.get('RTL Fire protection/ fire hydrant')),
+            status_oil_pollution        = _safe(row.get('Status Oil pollution prevention/oil dispersant/oil boom')),
+            remark_oil_pollution        = _safe(row.get('Remark Oil pollution prevention/oil dispersant/oil boom')),
+            rtl_oil_pollution           = _safe(row.get('RTL Oil pollution prevention/oil dispersant/oil boom')),
+            status_apar                 = _safe(row.get('Status APAR')),
+            remark_apar                 = _safe(row.get('Remark APAR')),
+            rtl_apar                    = _safe(row.get('RTL APAR')),
+            month_update                = _safe(row.get('Month Update')),
+            periode                     = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2084,34 +2260,124 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessTank(
-            refinery_unit             = normalize_ru(_safe(row.get('Refinery Unit'))),
-            area                      = _safe(row.get('Area')),
-            unit                      = _safe(row.get('Unit')),
-            tag_number                = _safe(row.get('Tag Number')),
-            equipment                 = _safe(row.get('Tag Number')),
-            type_tangki               = _safe(row.get('Type Tangki')),
-            service_tangki            = _safe(row.get('Service Tangki')),
-            prioritas                 = _safe(row.get('Prioritas')),
-            status_operational        = _safe(row.get('Status Operational Tangki')),
-            cert_no_atg               = _safe(row.get('Cert No ATG')),
-            date_expired_atg          = _to_date_str(row.get('Date Expired ATG')),
-            atg_certification_validity= _safe(row.get('ATG Certification Validity')),
-            coi_date_expired          = _to_date_str(row.get('COI (Date Expired)')),
-            no_coi                    = _safe(row.get('No COI')),
-            status_coi                = _safe(row.get('Status COI')),
-            internal_inspection       = _safe(row.get('Internal Inspection')),
-            plan_internal_inspection  = _to_date_str(row.get('Plan Internal Inspection ')),
-            status_atg                = _safe(row.get('Status ATG')),
-            remark_atg                = _safe(row.get('Remark ATG')),
-            status_grounding          = _safe(row.get('Status Grounding')),
-            status_shell_course       = _safe(row.get('Status Shell Course')),
-            remark_shell_course       = _safe(row.get('Remark Shell Course')),
-            status_roof               = _safe(row.get('Status Roof (cone/Floating)')),
-            remark_roof               = _safe(row.get('Remark Roof (cone/Floating)')),
-            status_cathodic           = _safe(row.get('Status Cathodic Protection')),
-            remark_cathodic           = _safe(row.get('Remark Cathodic Protection')),
-            month_update              = _to_date_str(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            refinery_unit                   = normalize_ru(_safe(row.get('Refinery Unit'))),
+            area                            = _safe(row.get('Area')),
+            unit                            = _safe(row.get('Unit')),
+            tag_number                      = _safe(row.get('Tag Number')),
+            equipment                       = _safe(row.get('Tag Number')),
+            type_tangki                     = _safe(row.get('Type Tangki')),
+            service_tangki                  = _safe(row.get('Service Tangki')),
+            prioritas                       = _safe(row.get('Prioritas')),
+            status_operational              = _safe(row.get('Status Operational Tangki')),
+            cert_no_atg                     = _safe(row.get('Cert No ATG')),
+            date_expired_atg                = _to_date_str(row.get('Date Expired ATG')),
+            atg_certification_validity      = _safe(row.get('ATG Certification Validity')),
+            coi_date_expired                = _to_date_str(row.get('COI (Date Expired)')),
+            no_coi                          = _safe(row.get('No COI')),
+            status_coi                      = _safe(row.get('Status COI')),
+            internal_inspection             = _safe(row.get('Internal Inspection')),
+            plan_internal_inspection        = _to_date_str(row.get('Plan Internal Inspection ')),
+            date_expired_tera               = _to_date_str(row.get('Date Expired (Validity Volume Table Tank (Tera))')),
+            status_tera                     = _safe(row.get('Status Validity Volume Table Tank (Tera)')),
+            cert_no_tera                    = _safe(row.get('Cert No Validity Volume Table Tank (Tera)')),
+            status_atg                      = _safe(row.get('Status ATG')),
+            remark_atg                      = _safe(row.get('Remark ATG')),
+            rtl_atg                         = _safe(row.get('RTL ATG')),
+            status_grounding                = _safe(row.get('Status Grounding')),
+            remark_grounding                = _safe(row.get('Remark Grounding')),
+            rtl_grounding                   = _safe(row.get('RTL Grounding')),
+            status_bonding                  = _safe(row.get('Status Bonding')),
+            remark_bonding                  = _safe(row.get('Remark Bonding')),
+            rtl_bonding                     = _safe(row.get('RTL Bonding')),
+            status_temp_indicator           = _safe(row.get('Status Temperature Indicator')),
+            remark_temp_indicator           = _safe(row.get('Remark Temperature Indicator')),
+            rtl_temp_indicator              = _safe(row.get('RTL Temperature Indicator')),
+            status_level_indicator          = _safe(row.get('Status Level Indikator')),
+            remark_level_indicator          = _safe(row.get('Remark Level Indikator')),
+            rtl_level_indicator             = _safe(row.get('RTL Level Indikator')),
+            status_gauge_hatch              = _safe(row.get('Status Gauge Gatch (Tutup Lubang Sample)')),
+            remark_gauge_hatch              = _safe(row.get('Remark Gauge Gatch (Tutup Lubang Sample)')),
+            rtl_gauge_hatch                 = _safe(row.get('RTL Gauge Gatch (Tutup Lubang Sample)')),
+            status_alarm                    = _safe(row.get('Status Alarm System')),
+            remark_alarm                    = _safe(row.get('Remark Alarm System')),
+            rtl_alarm                       = _safe(row.get('RTL Alarm System')),
+            status_ihla                     = _safe(row.get('Status IHLA')),
+            remark_ihla                     = _safe(row.get('Remark IHLA')),
+            rtl_ihla                        = _safe(row.get('RTL IHLA')),
+            status_water_sprinkle           = _safe(row.get('Status Instalasi Water Sprinkle')),
+            remark_water_sprinkle           = _safe(row.get('Remark Instalasi Water Sprinkle')),
+            rtl_water_sprinkle              = _safe(row.get('RTL Instalasi Water Sprinkle')),
+            status_foam_chamber             = _safe(row.get('Status Instalasi Foam Chamber')),
+            remark_foam_chamber             = _safe(row.get('Remark Instalasi Foam Chamber')),
+            rtl_foam_chamber                = _safe(row.get('RTL Instalasi Foam Chamber')),
+            status_gun_monitor              = _safe(row.get('Status Gun Monitor')),
+            remark_gun_monitor              = _safe(row.get('Remark Gun Monitor')),
+            rtl_gun_monitor                 = _safe(row.get('RTL Gun Monitor')),
+            status_fgds                     = _safe(row.get('Status FGDS')),
+            remark_fgds                     = _safe(row.get('Remark FGDS')),
+            rtl_fgds                        = _safe(row.get('RTL FGDS')),
+            status_lps                      = _safe(row.get('Status LPS')),
+            remark_lps                      = _safe(row.get('Remark LPS')),
+            rtl_lps                         = _safe(row.get('RTL LPS')),
+            status_cathodic                 = _safe(row.get('Status Cathodic Protection')),
+            remark_cathodic                 = _safe(row.get('Remark Cathodic Protection')),
+            rtl_cathodic                    = _safe(row.get('RTL Cathodic Protection')),
+            status_shell_course             = _safe(row.get('Status Shell Course')),
+            remark_shell_course             = _safe(row.get('Remark Shell Course')),
+            rtl_shell_course                = _safe(row.get('RTL Shell Course')),
+            status_roof                     = _safe(row.get('Status Roof (cone/Floating)')),
+            remark_roof                     = _safe(row.get('Remark Roof (cone/Floating)')),
+            rtl_roof                        = _safe(row.get('RTL Roof (cone/Floating)')),
+            status_pv_vent                  = _safe(row.get('Status PV Vent/Flame Arrester')),
+            remark_pv_vent                  = _safe(row.get('Remark PV Vent/Flame Arrester')),
+            rtl_pv_vent                     = _safe(row.get('RTL PV Vent/Flame Arrester')),
+            status_tank_heater              = _safe(row.get('Status Tank Heater (electric/steam)')),
+            remark_tank_heater              = _safe(row.get('Remark Tank Heater (electric/steam)')),
+            rtl_tank_heater                 = _safe(row.get('RTL Tank Heater (electric/steam)')),
+            status_mixer                    = _safe(row.get('Status Mixer')),
+            remark_mixer                    = _safe(row.get('Remark Mixer')),
+            rtl_mixer                       = _safe(row.get('RTL Mixer')),
+            status_stairway                 = _safe(row.get('Status Stairway/Handrail/Platform')),
+            remark_stairway                 = _safe(row.get('Remark Stairway/Handrail/Platform')),
+            rtl_stairway                    = _safe(row.get('RTL Stairway/Handrail/Platform')),
+            status_annular_plate            = _safe(row.get('Status Annular Plate')),
+            remark_annular_plate            = _safe(row.get('Remark Annular Plate')),
+            rtl_annular_plate               = _safe(row.get('RTL Annular Plate')),
+            status_bottom_plate             = _safe(row.get('Status Bottom Plate')),
+            remark_bottom_plate             = _safe(row.get('Remark Bottom Plate')),
+            rtl_bottom_plate                = _safe(row.get('RTL Bottom Plate')),
+            status_gate_valve               = _safe(row.get('Status Gate Valve in/out')),
+            remark_gate_valve               = _safe(row.get('Remark Gate Valve in/out')),
+            rtl_gate_valve                  = _safe(row.get('RTL Gate Valve in/out')),
+            status_foundation               = _safe(row.get('Status Foundation')),
+            remark_foundation               = _safe(row.get('Remark Foundation')),
+            rtl_foundation                  = _safe(row.get('RTL Foundation')),
+            status_expansion_joint          = _safe(row.get('Status Expansion Joint')),
+            remark_expansion_joint          = _safe(row.get('Remark Expansion Joint')),
+            rtl_expansion_joint             = _safe(row.get('RTL Expansion Joint')),
+            status_roof_drain               = _safe(row.get('Stataus Roof Drain')),
+            remark_roof_drain               = _safe(row.get('Remark Roof Drain')),
+            rtl_roof_drain                  = _safe(row.get('RTL Roof Drain')),
+            status_esv_psv                  = _safe(row.get('Status ESV/PSV')),
+            remark_esv_psv                  = _safe(row.get('Remark ESV/PSV')),
+            rtl_esv_psv                     = _safe(row.get('RTL ESV/PSV')),
+            status_mov                      = _safe(row.get('Status MOV')),
+            remark_mov                      = _safe(row.get('Remark MOV')),
+            rtl_mov                         = _safe(row.get('RTL MOV')),
+            status_rolling_ladder           = _safe(row.get('Status Rolling Ladder')),
+            remark_rolling_ladder           = _safe(row.get('Remark Rolling Ladder')),
+            rtl_rolling_ladder              = _safe(row.get('RTL Rolling Ladder')),
+            status_skirt_fireproofing       = _safe(row.get('Status Skirt/Fireproofing')),
+            remark_skirt_fireproofing       = _safe(row.get('Remark Skirt/Fireproofing')),
+            rtl_skirt_fireproofing          = _safe(row.get('RTL Skirt/Fireproofing')),
+            status_painting                 = _safe(row.get('Status Painting')),
+            remark_painting                 = _safe(row.get('Remark Painting')),
+            rtl_painting                    = _safe(row.get('RTL Painting')),
+            status_roof_seal                = _safe(row.get('Status Roof Seal (Floating Roof)')),
+            remark_roof_seal                = _safe(row.get('Remark Roof Seal (Floating Roof)')),
+            rtl_roof_seal                   = _safe(row.get('RTL Roof Seal (Floating Roof)')),
+            month_update                    = _safe(row.get('Month Update')),
+            periode                         = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
@@ -2156,30 +2422,83 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
     count = 0
     for _, row in df.iterrows():
         db.add(ReadinessSPM(
-            refinery_unit         = normalize_ru(_safe(row.get('Refinery Unit'))),
-            area                  = _safe(row.get('Area')),
-            unit                  = _safe(row.get('Unit')),
-            tag_no                = _safe(row.get('Tag No')),
-            equipment             = _safe(row.get('Tag No')),
-            status_operation      = _safe(row.get('Status Operation')),
-            no_laik_operasi       = _safe(row.get('Nomor Persetujuan Laik Operasi (MIGAS)')),
-            expired_laik_operasi  = _to_date_str(row.get('Expired Persetujuan Laik Operasi (MIGAS)')),
-            status_laik_operasi   = _safe(row.get('Status Persetujuan Laik Operasi (MIGAS)')),
-            no_ijin_spl           = _safe(row.get('Nomor Ijin Pengoperasian SPL')),
-            expired_ijin_spl      = _to_date_str(row.get('Ijin Pengoperasian SPL Expired Date')),
-            status_ijin_spl       = _safe(row.get('Status Ijin Pengoperasian SPL')),
-            status_mbc            = _safe(row.get('Status MBC (Marine Breakway Coupling)')),
-            remark_mbc            = _safe(row.get('Remark MBC (Marine Breakway Coupling)')),
-            status_lds            = _safe(row.get('Status Leak Detection System (LDS)')),
-            remark_lds            = _safe(row.get('Remark Leak Detection System (LDS)')),
-            status_mooring_hawser = _safe(row.get('Status Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
-            remark_mooring_hawser = _safe(row.get('Remark Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
-            status_floating_hose  = _safe(row.get('Status Floating Hose  System')),
-            remark_floating_hose  = _safe(row.get('Remark Floating Hose  System')),
-            status_cathodic_spl   = _safe(row.get('Status Cathodic Protection (SPL)')),
-            status_cathodic_spm   = _safe(row.get('Status Cathodic Protection (SPM)')),
-            month_update          = _to_date_str(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            refinery_unit             = normalize_ru(_safe(row.get('Refinery Unit'))),
+            area                      = _safe(row.get('Area')),
+            unit                      = _safe(row.get('Unit')),
+            tag_no                    = _safe(row.get('Tag No')),
+            equipment                 = _safe(row.get('Tag No')),
+            status_operation          = _safe(row.get('Status Operation')),
+            no_laik_operasi           = _safe(row.get('Nomor Persetujuan Laik Operasi (MIGAS)')),
+            expired_laik_operasi      = _to_date_str(row.get('Expired Persetujuan Laik Operasi (MIGAS)')),
+            status_laik_operasi       = _safe(row.get('Status Persetujuan Laik Operasi (MIGAS)')),
+            no_ijin_spl               = _safe(row.get('Nomor Ijin Pengoperasian SPL')),
+            expired_ijin_spl          = _to_date_str(row.get('Ijin Pengoperasian SPL Expired Date')),
+            status_ijin_spl           = _safe(row.get('Status Ijin Pengoperasian SPL')),
+            status_mbc                = _safe(row.get('Status MBC (Marine Breakway Coupling)')),
+            remark_mbc                = _safe(row.get('Remark MBC (Marine Breakway Coupling)')),
+            rtl_mbc                   = _safe(row.get('RTL MBC (Marine Breakway Coupling)')),
+            status_guard_rail         = _safe(row.get('Status Guard Rail/Overhead Protection Frame')),
+            remark_guard_rail         = _safe(row.get('Remark Guard Rail/Overhead Protection Frame')),
+            rtl_guard_rail            = _safe(row.get('RTL Guard Rail/Overhead Protection Frame')),
+            status_lds                = _safe(row.get('Status Leak Detection System (LDS)')),
+            remark_lds                = _safe(row.get('Remark Leak Detection System (LDS)')),
+            rtl_lds                   = _safe(row.get('RTL Leak Detection System (LDS)')),
+            status_navigation_aid     = _safe(row.get('Status Navigation Aid (SBNP) & Winker Light')),
+            remark_navigation_aid     = _safe(row.get('Remark Navigation Aid (SBNP) & Winker Light')),
+            rtl_navigation_aid        = _safe(row.get('RTL Navigation Aid (SBNP) & Winker Light')),
+            status_buoy_body          = _safe(row.get('Status Buoy Body (Deck, buoy, compartment)')),
+            remark_buoy_body          = _safe(row.get('Remark Buoy Body (Deck, buoy, compartment)')),
+            rtl_buoy_body             = _safe(row.get('RTL Buoy Body (Deck, buoy, compartment)')),
+            status_turn_table         = _safe(row.get('Status Turn Table (Launch/Mooring/Divers Platform)')),
+            remark_turn_table         = _safe(row.get('Remark Turn Table (Launch/Mooring/Divers Platform)')),
+            rtl_turn_table            = _safe(row.get('RTL Turn Table (Launch/Mooring/Divers Platform)')),
+            status_mrb                = _safe(row.get('Status Main Roller Bearing (MRB)')),
+            remark_mrb                = _safe(row.get('Remark Main Roller Bearing (MRB)')),
+            rtl_mrb                   = _safe(row.get('RTL Main Roller Bearing (MRB)')),
+            status_swivel_bearing     = _safe(row.get('Status Swivel Bearing (Central Pipe)')),
+            remark_swivel_bearing     = _safe(row.get('Remark Swivel Bearing (Central Pipe)')),
+            rtl_swivel_bearing        = _safe(row.get('RTL Swivel Bearing (Central Pipe)')),
+            status_cpu                = _safe(row.get('Status CPU System/Piping System/Isolation Valve')),
+            remark_cpu                = _safe(row.get('Remark CPU System/Piping System/Isolation Valve')),
+            rtl_cpu                   = _safe(row.get('RTL CPU System/Piping System/Isolation Valve')),
+            status_mooring_hawser     = _safe(row.get('Status Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
+            remark_mooring_hawser     = _safe(row.get('Remark Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
+            rtl_mooring_hawser        = _safe(row.get('RTL Mooring Hawser/Bridle/Fairlead/Pickupbuoy/Chafe/Chain Tension Tripod')),
+            status_anchor_chain       = _safe(row.get('Status Anchor Chain System')),
+            remark_anchor_chain       = _safe(row.get('Remark Anchor Chain System')),
+            rtl_anchor_chain          = _safe(row.get('RTL Anchor Chain System')),
+            status_floating_hose      = _safe(row.get('Status Floating Hose  System')),
+            remark_floating_hose      = _safe(row.get('Remark Floating Hose  System')),
+            rtl_floating_hose         = _safe(row.get('RTL Floating Hose  System')),
+            status_subsea_hose        = _safe(row.get('Status Sub Sea Hose String')),
+            remark_subsea_hose        = _safe(row.get('Remark Sub Sea Hose String')),
+            rtl_subsea_hose           = _safe(row.get('RTL Sub Sea Hose String')),
+            status_camlock            = _safe(row.get('Status Camlock (hose end)/Butterfly Valve')),
+            remark_camlock            = _safe(row.get('Remark Camlock (hose end)/Butterfly Valve')),
+            rtl_camlock               = _safe(row.get('RTL Camlock (hose end)/Butterfly Valve')),
+            status_cathodic_spl       = _safe(row.get('Status Cathodic Protection (SPL)')),
+            remark_cathodic_spl       = _safe(row.get('Remark Cathodic Protection (SPL)')),
+            rtl_cathodic_spl          = _safe(row.get('RTL Cathodic Protection (SPL)')),
+            status_cathodic_spm       = _safe(row.get('Status Cathodic Protection (SPM)')),
+            remark_cathodic_spm       = _safe(row.get('Remark Cathodic Protection (SPM)')),
+            rtl_cathodic_spm          = _safe(row.get('RTL Cathodic Protection (SPM)')),
+            status_expansion_joint    = _safe(row.get('Status Expansion Joint')),
+            remark_expansion_joint    = _safe(row.get('Remark Expansion Joint')),
+            rtl_expansion_joint       = _safe(row.get('RTL Expansion Joint')),
+            status_plem               = _safe(row.get('Status Pipeline End Manifold (PLEM)')),
+            remark_plem               = _safe(row.get('Remark Pipeline End Manifold (PLEM)')),
+            rtl_plem                  = _safe(row.get('RTL Pipeline End Manifold (PLEM)')),
+            status_pressure_indicator = _safe(row.get('Status Pressure Indicator')),
+            remark_pressure_indicator = _safe(row.get('Remark Pressure Indicator')),
+            rtl_pressure_indicator    = _safe(row.get('RTL Pressure Indicator')),
+            status_submarine_pipeline = _safe(row.get('Status Submarine Pipeline (SPL)')),
+            remark_submarine_pipeline = _safe(row.get('Remark Submarine Pipeline (SPL)')),
+            rtl_submarine_pipeline    = _safe(row.get('RTL Submarine Pipeline (SPL)')),
+            status_temp_indicator     = _safe(row.get('Status Temp Indicator')),
+            remark_temp_indicator     = _safe(row.get('Remark Temp Indicator')),
+            rtl_temp_indicator        = _safe(row.get('RTL Temp Indicator')),
+            month_update              = _safe(row.get('Month Update')),
+            periode                   = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
