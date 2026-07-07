@@ -364,6 +364,7 @@ class RCPSRekomendasi(Base):
     external_resource       = Column(Text)
     no_irkap                = Column(Text)
     remark                  = Column(Text)
+    periode                 = Column(Text)
 
 # ─── 19. RCPS ─────────────────────────────────────────────────────────────────
 class RCPS(Base):

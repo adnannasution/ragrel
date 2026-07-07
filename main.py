@@ -1971,6 +1971,7 @@ def sync_rcps_rekomendasi(file_location: str, db: Session):
             external_resource       = _safe(row.get('Recommendation Need External Resource?')),
             no_irkap                = _safe(row.get('No. IRKAP')),
             remark                  = _safe(row.get('Remark')),
+            periode                 = _last_month_periode(),
         ))
         count += 1
     db.commit()
