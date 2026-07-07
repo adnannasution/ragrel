@@ -331,6 +331,7 @@ class InspectionPlan(Base):
     visual_lainnya        = Column(Text)
     result_lainnya        = Column(Text)
     grand_result          = Column(Text)
+    periode               = Column(Text)
 
 # ─── 17. TKDN ─────────────────────────────────────────────────────────────────
 class TKDN(Base):
