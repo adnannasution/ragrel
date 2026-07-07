@@ -201,6 +201,7 @@ class ZeroClamp(Base):
     no_irkap                        = Column(Text)
     status                          = Column(Text)
     remarks                         = Column(Text)
+    periode                         = Column(Text)
 
 # ─── 10. ISSUE PAF ───────────────────────────────────────────────────────────
 class IssuePAF(Base):

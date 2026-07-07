@@ -1709,6 +1709,7 @@ def sync_zero_clamp(file_location: str, db: Session):
             no_irkap                  = _safe(row.get('NO IRKAP')),
             status                    = _safe(row.get('STATUS')),
             remarks                   = _safe(row.get('Remarks')),
+            periode                   = to_periode(_to_date_str(row.get('TANGGAL DIPASANG'))),
         ))
         count += 1
     db.commit()
