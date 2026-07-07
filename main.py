@@ -1873,7 +1873,7 @@ def sync_mon_operasi(file_location: str, db: Session):
             limitasi_alert_sts     = _safe(row.get('Limitasi/Alert STS')),
             mitigasi_sts           = _safe(row.get('Mitigasi_STS')),
             month_update           = _safe(row.get('Month Update')),
-            periode                = to_periode(row.get('Update')),
+            periode                = _last_month_periode(),
             code_current           = _to_int(row.get('Code Current')),
         ))
         count += 1
