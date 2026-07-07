@@ -2181,15 +2181,21 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
             plan_internal_inspection  = _to_date_str(row.get('Plan Internal Inspection ')),
             status_atg                = _safe(row.get('Status ATG')),
             remark_atg                = _safe(row.get('Remark ATG')),
+            rtl_atg                   = _safe(row.get('RTL ATG')),
             status_grounding          = _safe(row.get('Status Grounding')),
+            remark_grounding          = _safe(row.get('Remark Grounding')),
+            rtl_grounding             = _safe(row.get('RTL Grounding')),
             status_shell_course       = _safe(row.get('Status Shell Course')),
             remark_shell_course       = _safe(row.get('Remark Shell Course')),
+            rtl_shell_course          = _safe(row.get('RTL Shell Course')),
             status_roof               = _safe(row.get('Status Roof (cone/Floating)')),
             remark_roof               = _safe(row.get('Remark Roof (cone/Floating)')),
+            rtl_roof                  = _safe(row.get('RTL Roof (cone/Floating)')),
             status_cathodic           = _safe(row.get('Status Cathodic Protection')),
             remark_cathodic           = _safe(row.get('Remark Cathodic Protection')),
-            month_update              = _to_date_str(row.get('Month Update')),
-            periode               = _last_month_periode(),
+            rtl_cathodic              = _safe(row.get('RTL Cathodic Protection')),
+            month_update              = _safe(row.get('Month Update')),
+            periode                   = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
