@@ -1127,6 +1127,7 @@ _DATE_FORMATS = [
     '%d/%m/%Y','%d-%m-%Y','%Y-%m-%d','%Y/%m/%d',
     '%d/%m/%y','%d-%m-%y','%m/%d/%Y','%m-%d-%Y',
     '%d %B %Y','%d %b %Y','%B %Y','%b %Y',
+    '%b-%y','%B-%y','%b-%Y','%B-%Y',
 ]
 
 def _try_parse_date(val) -> str | None:
@@ -2061,7 +2062,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
             status_fire_protection = _safe(row.get('Status Fire protection/ fire hydrant')),
             remark_fire_protection = _safe(row.get('Remark Fire protection/ fire hydrant')),
             month_update           = _to_date_str(row.get('Month Update')),
-            periode               = _last_month_periode(),
+            periode               = to_periode(row.get('Month Update')),
         ))
         count += 1
     db.commit()
