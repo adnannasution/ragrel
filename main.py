@@ -197,6 +197,104 @@ def startup():
                 conn.execute(_text(f'ALTER TABLE "{tbl}" ADD COLUMN "periode" TEXT'))
         if 'boc' in existing and 'remark' not in existing['boc']:
             conn.execute(_text('ALTER TABLE "boc" ADD COLUMN "remark" TEXT'))
+
+        # Kolom baru readiness_jetty
+        _jetty_cols = [
+            'rtl_struktur','status_mooring_dolphin','remark_mooring_dolphin','rtl_mooring_dolphin',
+            'status_breasting_dolphin','remark_breasting_dolphin','rtl_breasting_dolphin',
+            'rtl_trestle','status_rubber_fender','remark_rubber_fender','rtl_rubber_fender',
+            'rtl_mla','status_arc','remark_arc','rtl_arc',
+            'status_qrh','remark_qrh','rtl_qrh',
+            'status_piping','remark_piping','rtl_piping',
+            'status_cathodic','remark_cathodic','rtl_cathodic',
+            'status_grounding','remark_grounding','rtl_grounding',
+            'status_catwalk','remark_catwalk','rtl_catwalk',
+            'status_gangway','remark_gangway','rtl_gangway',
+            'status_lampu','remark_lampu','rtl_lampu',
+            'status_crane','remark_crane','rtl_crane',
+            'status_berthing','remark_berthing','rtl_berthing',
+            'status_alur','remark_alur','rtl_alur',
+            'rtl_fire_protection','status_oil_pollution','remark_oil_pollution','rtl_oil_pollution',
+            'status_apar','remark_apar','rtl_apar',
+        ]
+        for col in _jetty_cols:
+            if 'readiness_jetty' in existing and col not in existing['readiness_jetty']:
+                conn.execute(_text(f'ALTER TABLE "readiness_jetty" ADD COLUMN "{col}" TEXT'))
+
+        # Kolom baru readiness_spm
+        _spm_cols = [
+            'rtl_mbc','status_guard_rail','remark_guard_rail','rtl_guard_rail',
+            'rtl_lds','status_navigation_aid','remark_navigation_aid','rtl_navigation_aid',
+            'status_buoy_body','remark_buoy_body','rtl_buoy_body',
+            'status_turn_table','remark_turn_table','rtl_turn_table',
+            'status_mrb','remark_mrb','rtl_mrb',
+            'status_swivel_bearing','remark_swivel_bearing','rtl_swivel_bearing',
+            'status_cpu','remark_cpu','rtl_cpu',
+            'rtl_mooring_hawser','status_anchor_chain','remark_anchor_chain','rtl_anchor_chain',
+            'rtl_floating_hose','status_subsea_hose','remark_subsea_hose','rtl_subsea_hose',
+            'status_camlock','remark_camlock','rtl_camlock',
+            'remark_cathodic_spl','rtl_cathodic_spl','remark_cathodic_spm','rtl_cathodic_spm',
+            'status_expansion_joint','remark_expansion_joint','rtl_expansion_joint',
+            'status_plem','remark_plem','rtl_plem',
+            'status_pressure_indicator','remark_pressure_indicator','rtl_pressure_indicator',
+            'status_submarine_pipeline','remark_submarine_pipeline','rtl_submarine_pipeline',
+            'status_temp_indicator','remark_temp_indicator','rtl_temp_indicator',
+        ]
+        for col in _spm_cols:
+            if 'readiness_spm' in existing and col not in existing['readiness_spm']:
+                conn.execute(_text(f'ALTER TABLE "readiness_spm" ADD COLUMN "{col}" TEXT'))
+
+        # Kolom baru readiness_tank
+        _tank_cols = [
+            'date_expired_tera','status_tera','cert_no_tera',
+            'rtl_atg','remark_grounding','rtl_grounding',
+            'status_bonding','remark_bonding','rtl_bonding',
+            'status_temp_indicator','remark_temp_indicator','rtl_temp_indicator',
+            'status_level_indicator','remark_level_indicator','rtl_level_indicator',
+            'status_gauge_hatch','remark_gauge_hatch','rtl_gauge_hatch',
+            'status_alarm','remark_alarm','rtl_alarm',
+            'status_ihla','remark_ihla','rtl_ihla',
+            'status_water_sprinkle','remark_water_sprinkle','rtl_water_sprinkle',
+            'status_foam_chamber','remark_foam_chamber','rtl_foam_chamber',
+            'status_gun_monitor','remark_gun_monitor','rtl_gun_monitor',
+            'status_fgds','remark_fgds','rtl_fgds',
+            'status_lps','remark_lps','rtl_lps',
+            'rtl_cathodic','rtl_shell_course','rtl_roof',
+            'status_pv_vent','remark_pv_vent','rtl_pv_vent',
+            'status_tank_heater','remark_tank_heater','rtl_tank_heater',
+            'status_mixer','remark_mixer','rtl_mixer',
+            'status_stairway','remark_stairway','rtl_stairway',
+            'status_annular_plate','remark_annular_plate','rtl_annular_plate',
+            'status_bottom_plate','remark_bottom_plate','rtl_bottom_plate',
+            'status_gate_valve','remark_gate_valve','rtl_gate_valve',
+            'status_foundation','remark_foundation','rtl_foundation',
+            'status_expansion_joint','remark_expansion_joint','rtl_expansion_joint',
+            'status_roof_drain','remark_roof_drain','rtl_roof_drain',
+            'status_esv_psv','remark_esv_psv','rtl_esv_psv',
+            'status_mov','remark_mov','rtl_mov',
+            'status_rolling_ladder','remark_rolling_ladder','rtl_rolling_ladder',
+            'status_skirt_fireproofing','remark_skirt_fireproofing','rtl_skirt_fireproofing',
+            'status_painting','remark_painting','rtl_painting',
+            'status_roof_seal','remark_roof_seal','rtl_roof_seal',
+        ]
+        for col in _tank_cols:
+            if 'readiness_tank' in existing and col not in existing['readiness_tank']:
+                conn.execute(_text(f'ALTER TABLE "readiness_tank" ADD COLUMN "{col}" TEXT'))
+
+        # Kolom baru rcps dan rcps_rekomendasi
+        if 'rcps' in existing and 'periode' not in existing['rcps']:
+            conn.execute(_text('ALTER TABLE "rcps" ADD COLUMN "periode" TEXT'))
+        if 'rcps_rekomendasi' in existing and 'periode' not in existing['rcps_rekomendasi']:
+            conn.execute(_text('ALTER TABLE "rcps_rekomendasi" ADD COLUMN "periode" TEXT'))
+
+        # Kolom baru inspection_plan
+        if 'inspection_plan' in existing and 'periode' not in existing['inspection_plan']:
+            conn.execute(_text('ALTER TABLE "inspection_plan" ADD COLUMN "periode" TEXT'))
+
+        # Kolom baru zero_clamp
+        if 'zero_clamp' in existing and 'periode' not in existing['zero_clamp']:
+            conn.execute(_text('ALTER TABLE "zero_clamp" ADD COLUMN "periode" TEXT'))
+
         conn.commit()
     _build_db_schema_cols()  # scan kolom kategorikal otomatis
  
