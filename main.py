@@ -1170,6 +1170,14 @@ def _try_parse_date(val) -> str | None:
             pass
     return None
 
+def _last_month_periode() -> str:
+    """Kembalikan YYYY-MM-01 dari bulan lalu (relatif terhadap tanggal upload)."""
+    from datetime import date
+    today = date.today()
+    if today.month == 1:
+        return f"{today.year - 1}-12-01"
+    return f"{today.year}-{today.month - 1:02d}-01"
+
 def to_periode(val=None, bulan=None, tahun=None) -> str | None:
     """
     Konversi berbagai format ke 'YYYY-MM-01' (awal bulan) untuk kolom periode.
@@ -1780,7 +1788,7 @@ def sync_jumlah_eqp(file_location: str, db: Session):
             status_equipment = _safe(row.get('Status Equipment')),
             jumlah           = _to_int(row.get('Jumlah')),
             month_update     = _safe(row.get('Month Update')),
-            periode          = to_periode(row.get('Update') or row.get('Month Update')),
+            periode          = _last_month_periode(),
             code_current     = _to_int(row.get('Code Current')),
         ))
         count += 1
