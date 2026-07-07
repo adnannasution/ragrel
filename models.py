@@ -379,6 +379,7 @@ class RCPS(Base):
     judul_rcps      = Column(Text)
     rcps_no         = Column(Text)
     criticallity    = Column(Text)
+    periode         = Column(Text)
 
 # ─── 20. BOC (Basis of Comparison) ───────────────────────────────────────────
 class BOC(Base):

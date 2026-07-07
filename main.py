@@ -1994,6 +1994,7 @@ def sync_rcps(file_location: str, db: Session):
             judul_rcps      = _safe(row.get('Judul RCPS')),
             rcps_no         = _safe(row.get('RCPS No')),
             criticallity    = _safe(row.get('Criticallity')),
+            periode         = _last_month_periode(),
         ))
         count += 1
     db.commit()
