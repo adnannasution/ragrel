@@ -1323,7 +1323,7 @@ def sync_icu(file_location: str, db: Session):
         db.add(ICUMonitoring(
             report_date         = report_date,
             periode             = to_periode(report_date),
-            ru                  = g('ru'),
+            ru                  = normalize_ru(g('ru')),
             icu_status          = g('icu_status'),
             tag_no              = g('tag_no'),
             equipment           = g('tag_no'),
