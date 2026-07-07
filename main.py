@@ -1884,15 +1884,28 @@ def sync_inspection_plan(file_location: str, db: Session):
     df = pd.read_excel(file_location, sheet_name=0, header=0)
     df = _auto_convert_dates(df)
     df = _dedup_columns(df)
+
+    def _fcol(*candidates):
+        for c in candidates:
+            if c in df.columns:
+                return c
+            matches = [col for col in df.columns if c.lower() in col.lower()]
+            if matches:
+                return matches[0]
+        return None
+
+    tag_col = _fcol('Tag No/LN', 'Tag No', 'Tag No / LN', 'Tag No LN')
+
     db.query(InspectionPlan).delete()
     count = 0
     for _, row in df.iterrows():
+        tag_val = _safe(row.get(tag_col)) if tag_col else ''
         db.add(InspectionPlan(
             refinery_unit         = normalize_ru(_safe(row.get('Refinery Unit'))),
             area                  = _safe(row.get('Area')),
             unit                  = _safe(row.get('Unit')),
-            tag_no_ln             = _safe(row.get('Tag No/LN')),
-            equipment             = _safe(row.get('Tag No/LN')),
+            tag_no_ln             = tag_val,
+            equipment             = tag_val,
             type_equipment        = _safe(row.get('Type Equipment')),
             type_inspection       = _safe(row.get('Type Inspection')),
             type_pekerjaan        = _safe(row.get('Type Pekerjaan')),
