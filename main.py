@@ -1916,7 +1916,7 @@ def sync_inspection_plan(file_location: str, db: Session):
             actual_date           = _to_date_str(row.get('Actual Date')),
             actual_year           = _to_int(row.get('Actual Year')),
             update_date           = _to_date_str(row.get('Update Date')),
-            periode               = to_periode(_to_date_str(row.get('Actual Date'))),
+            periode               = to_periode(_to_date_str(row.get('Due Date'))),
             result_remaining_life = _to_float(row.get('Result Remaining Life')),
             result_visual         = _safe(row.get('Result Visual')),
             visual_lainnya        = _safe(row.get('Visual Lainnya')),
