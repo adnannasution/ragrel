@@ -2061,7 +2061,7 @@ def sync_readiness_jetty(file_location: str, db: Session, mode: str = "replace")
             status_fire_protection = _safe(row.get('Status Fire protection/ fire hydrant')),
             remark_fire_protection = _safe(row.get('Remark Fire protection/ fire hydrant')),
             month_update           = _to_date_str(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode               = _last_month_periode(),
         ))
         count += 1
     db.commit()
@@ -2136,7 +2136,7 @@ def sync_readiness_tank(file_location: str, db: Session, mode: str = "replace"):
             status_cathodic           = _safe(row.get('Status Cathodic Protection')),
             remark_cathodic           = _safe(row.get('Remark Cathodic Protection')),
             month_update              = _to_date_str(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode               = _last_month_periode(),
         ))
         count += 1
     db.commit()
@@ -2204,7 +2204,7 @@ def sync_readiness_spm(file_location: str, db: Session, mode: str = "replace"):
             status_cathodic_spl   = _safe(row.get('Status Cathodic Protection (SPL)')),
             status_cathodic_spm   = _safe(row.get('Status Cathodic Protection (SPM)')),
             month_update          = _to_date_str(row.get('Month Update')),
-            periode               = to_periode(row.get('Month Update')),
+            periode               = _last_month_periode(),
         ))
         count += 1
     db.commit()
